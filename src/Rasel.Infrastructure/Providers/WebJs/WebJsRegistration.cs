@@ -23,7 +23,7 @@ public static class WebJsRegistration
             {
                 var o = context.ServiceProvider.GetRequiredService<IOptions<WhatsAppOptions>>().Value.WebJs;
 
-                pipeline.AddRetry(new HttpRetryStrategyOptions
+                if (o.ReadRetries > 0) pipeline.AddRetry(new HttpRetryStrategyOptions
                 {
                     MaxRetryAttempts = o.ReadRetries,
                     BackoffType = DelayBackoffType.Exponential,

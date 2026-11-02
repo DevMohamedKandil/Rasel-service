@@ -23,6 +23,8 @@ public static class DatabaseInitializer
         var env = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
 
         var db = scope.ServiceProvider.GetRequiredService<RaselDbContext>();
+        // WAL lets readers and the single writer proceed concurrently (API requests vs. the outbox worker). Persisted in the file.
+        await db.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;", ct);
         if (scope.ServiceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value.MigrateOnStartup)
         {
             await db.Database.MigrateAsync(ct);
