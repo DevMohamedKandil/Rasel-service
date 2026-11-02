@@ -4,6 +4,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Rasel.Infrastructure.Configuration;
 using Rasel.Application.Common;
 using Rasel.Application.Ports;
 using Rasel.Domain.Entities;
@@ -20,7 +22,14 @@ public static class DatabaseInitializer
         var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
         var env = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
 
-        await scope.ServiceProvider.GetRequiredService<RaselDbContext>().Database.EnsureCreatedAsync(ct);
+        var db = scope.ServiceProvider.GetRequiredService<RaselDbContext>();
+        if (scope.ServiceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value.MigrateOnStartup)
+        {
+            await db.Database.MigrateAsync(ct);
+            logger.LogInformation("Database migrations applied");
+        }
+        else if ((await db.Database.GetPendingMigrationsAsync(ct)).Any())
+            throw new InvalidOperationException("The database has pending migrations and Database:MigrateOnStartup is false. Run the migrations first.");
 
         var clients = scope.ServiceProvider.GetRequiredService<IApiClientRepository>();
         if (await clients.AnyAsync(ct)) return;
