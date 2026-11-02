@@ -32,3 +32,24 @@ Severity: **H** high, **M** medium, **L** low. Every row is addressed by a commi
 | 26 | L | Tests | In-memory fake store hides concurrency/persistence behaviour; API tests poll the worker with sleeps. | `TestHarness.cs:25-60`, `ApiTests.cs:148` | SQLite-backed concurrency tests |
 
 Positives verified: OTP code is HMAC-SHA256 with pepper and challenge id, compared with `FixedTimeEquals` (`SecurityServices.cs:14-15`); CSPRNG code generation (`:22-23`); API keys stored hashed; `PhoneNumber.Masked` used for OTP records; verify always computes the hash before checking status (no timing difference between statuses); layering Domain <- Application <- Infrastructure is otherwise respected (Domain has no package references).
+
+## Resolution status
+
+| # | Status | Where |
+|---|--------|-------|
+| 1, 2 | Fixed, concurrency-tested on real SQLite | `OtpChallenge.Version`, filtered unique index, `ConcurrencyTests` |
+| 3, 18 | Fixed | Durable outbox (`Message`, `OutboxWorker`, `MessageSender`), `OutboxTests` |
+| 4 | Fixed | `Persistence/Migrations/*_InitialCreate`, model-drift test |
+| 5, 6, 7 | Fixed | `ApiKeyAuthenticationHandler`, fallback policy, `ClientRateLimitMiddleware`, `HardeningTests` |
+| 8, 10 | Fixed | `IValidateOptions` + `ValidateOnStart`, environment-aware secret policy, seed key logging |
+| 9 | Fixed | `Idempotency-Key`, unique index, fingerprint check |
+| 11 | Fixed | Masked `Target`, `Destination`/`Body` erased when terminal, `PiiRedactor` |
+| 12 | Fixed | `AppExceptionHandler` (provider, bad request), `UseStatusCodePages` |
+| 13, 14, 16, 20, 21, 22 | Fixed | `DailyLimitGuard`, `DatabaseInitializerService`, `TimeProvider`, limiter eviction, code format check, `jti`/`aud`, structured logs |
+| 15 | Partly fixed | Timestamped signature done; webhook retry **not** implemented |
+| 17 | Fixed | Swagger Development-only, `/health/live` + `/health/ready`, 64 KiB limit (413 seen over real HTTP) |
+| 19 | Fixed (not field-proven) | `WebJsWhatsAppProvider` + resilience pipeline, tested against HTTP stubs only |
+| 23 | Mostly fixed | Split into one type per file except `Ports.cs` and `Repositories.cs` (cohesive groupings, accepted) |
+| 24 | Fixed (lightweight) | `ApiVersions.MapVersion`, `X-Api-Version`, ADR-8; no `Asp.Versioning` package |
+| 25 | Accepted | Soft daily quota, documented in `DailyLimitGuard` |
+| 26 | Fixed | Infrastructure test project with real SQLite and parallel scopes |
