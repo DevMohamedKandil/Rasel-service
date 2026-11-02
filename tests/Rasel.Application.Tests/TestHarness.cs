@@ -9,10 +9,11 @@ using Rasel.Infrastructure.Security;
 
 namespace Rasel.Application.Tests;
 
-public sealed class FakeClock : IClock
+public sealed class FakeClock : TimeProvider
 {
     public DateTimeOffset UtcNow { get; set; } = new(2026, 1, 1, 12, 0, 0, TimeSpan.Zero);
     public void Advance(TimeSpan by) => UtcNow += by;
+    public override DateTimeOffset GetUtcNow() => UtcNow;
 }
 
 public sealed class FixedCodeGenerator : ICodeGenerator
@@ -80,6 +81,7 @@ public sealed class Harness
     }
 
     public IRateLimiter Limiter { get; }
+    public DailyLimitGuard DailyLimit => new(Store, Clock);
 
     public static async Task<Harness> CreateConnectedAsync(int dailyLimit = 100)
     {
@@ -92,8 +94,8 @@ public sealed class Harness
     }
 
     public CreateSessionHandler CreateSession() => new(Store, WhatsApp, Clock);
-    public SendTextHandler SendText() => new(Store, Store, WhatsApp, Store, Clock);
-    public RequestOtpHandler RequestOtp() => new(Store, Store, Store, WhatsApp, Sms, Hasher, Codes, Limiter, Clock, Options);
+    public SendTextHandler SendText() => new(Store, Store, WhatsApp, Store, DailyLimit, Clock);
+    public RequestOtpHandler RequestOtp() => new(Store, Store, Store, WhatsApp, Sms, Hasher, Codes, Limiter, DailyLimit, Clock, Options);
     public VerifyOtpHandler VerifyOtp() => new(Store, Hasher, Tokens, Clock, Options);
     public MessageSender Sender() => new(Store, WhatsApp, new NullWebhooks());
 }

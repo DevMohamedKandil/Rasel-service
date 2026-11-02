@@ -5,7 +5,11 @@ namespace Rasel.Application.Ports;
 
 public sealed record GroupInfo(string Id, string Name);
 
-public sealed class ProviderException(string message) : Exception(message);
+/// <summary>A provider failure. Transient failures (timeouts, 5xx, open circuit) are retried by the outbox; permanent ones are not.</summary>
+public sealed class ProviderException(string message, bool isTransient = false) : Exception(message)
+{
+    public bool IsTransient { get; } = isTransient;
+}
 
 public interface IWhatsAppProvider
 {
@@ -68,6 +72,9 @@ public interface IRateLimiter
 {
     /// <summary>Records a hit and returns true when it is within <paramref name="limit"/> per <paramref name="window"/>.</summary>
     bool TryAcquire(string key, int limit, TimeSpan window);
+
+    /// <summary>True when the key already used up its quota. Does not record a hit.</summary>
+    bool IsExceeded(string key, int limit, TimeSpan window);
 }
 
 public interface IOtpHasher
@@ -81,10 +88,6 @@ public interface ICodeGenerator
     string GenerateNumeric(int digits);
 }
 
-public interface IClock
-{
-    DateTimeOffset UtcNow { get; }
-}
 
 public interface IWebhookDispatcher
 {

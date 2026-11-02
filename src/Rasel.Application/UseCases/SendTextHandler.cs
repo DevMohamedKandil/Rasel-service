@@ -11,7 +11,7 @@ public sealed record SendTextCommand(Guid? SessionId, string? Phone, string? Gro
 public sealed record SendTextResult(Guid MessageId, MessageStatus Status);
 
 public sealed class SendTextHandler(
-    ISessionRepository sessions, IMessageRepository messages, IWhatsAppProvider provider, IMessageQueue queue, IClock clock)
+    ISessionRepository sessions, IMessageRepository messages, IWhatsAppProvider provider, IMessageQueue queue, DailyLimitGuard dailyLimit, TimeProvider clock)
 {
     public async Task<SendTextResult> HandleAsync(ApiClient client, SendTextCommand cmd, CancellationToken ct)
     {
@@ -21,7 +21,7 @@ public sealed class SendTextHandler(
             throw new AppException(ErrorKind.BadRequest, "invalid_target", "Provide exactly one of phone or groupName.");
 
         var session = await ResolveSessionAsync(client.Id, cmd.SessionId, ct);
-        await EnsureWithinDailyLimitAsync(client, messages, clock, ct);
+        await dailyLimit.EnsureWithinAsync(client, ct);
 
         TargetType type;
         string target;
@@ -43,18 +43,12 @@ public sealed class SendTextHandler(
             target = cmd.GroupName!;
         }
 
-        var message = Message.Queue(client.Id, session.Id, type, target, clock.UtcNow);
+        var message = Message.Queue(client.Id, session.Id, type, target, clock.GetUtcNow());
         await messages.AddAsync(message, ct);
         await queue.EnqueueAsync(new QueuedMessage(message.Id, client.Id, session.Id, type, target, cmd.Text), ct);
         return new SendTextResult(message.Id, message.Status);
     }
 
-    internal static async Task EnsureWithinDailyLimitAsync(ApiClient client, IMessageRepository messages, IClock clock, CancellationToken ct)
-    {
-        var since = new DateTimeOffset(clock.UtcNow.UtcDateTime.Date, TimeSpan.Zero);
-        if (await messages.CountSinceAsync(client.Id, since, ct) >= client.DailyMessageLimit)
-            throw new AppException(ErrorKind.TooManyRequests, "daily_limit_reached", "Daily message limit reached.");
-    }
 
     private async Task<Session> ResolveSessionAsync(Guid clientId, Guid? sessionId, CancellationToken ct)
     {

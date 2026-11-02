@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Rasel.Application.Ports;
 using Rasel.Infrastructure.Messaging;
 using Rasel.Infrastructure.Persistence;
@@ -25,10 +26,10 @@ public static class DependencyInjection
         services.AddSingleton<FakeSmsProvider>();
         services.AddSingleton<ISmsProvider>(sp => sp.GetRequiredService<FakeSmsProvider>());
 
-        services.AddSingleton<IClock, SystemClock>();
+        services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<ICodeGenerator, CsprngCodeGenerator>();
         services.AddSingleton<IOtpHasher>(_ => new HmacOtpHasher(Required(config, "Security:OtpPepper")));
-        services.AddSingleton<ITokenIssuer>(sp => new HmacTokenIssuer(Required(config, "Security:TokenSecret"), sp.GetRequiredService<IClock>()));
+        services.AddSingleton<ITokenIssuer>(sp => new HmacTokenIssuer(Required(config, "Security:TokenSecret"), sp.GetRequiredService<TimeProvider>()));
         services.AddSingleton<IRateLimiter, SlidingWindowRateLimiter>();
 
         services.AddSingleton(config.GetSection("Queue").Get<QueueOptions>() ?? new QueueOptions());

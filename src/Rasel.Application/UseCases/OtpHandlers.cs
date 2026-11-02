@@ -13,7 +13,7 @@ public sealed record RequestOtpResult(Guid ChallengeId, int ExpiresInSeconds, in
 public sealed class RequestOtpHandler(
     IOtpRepository otps, ISessionRepository sessions, IMessageRepository messages,
     IWhatsAppProvider whatsApp, ISmsProvider sms, IOtpHasher hasher, ICodeGenerator codes,
-    IRateLimiter limiter, IClock clock, OtpOptions options)
+    IRateLimiter limiter, DailyLimitGuard dailyLimit, TimeProvider clock, OtpOptions options)
 {
     public async Task<RequestOtpResult> HandleAsync(ApiClient client, RequestOtpCommand cmd, CancellationToken ct)
     {
@@ -23,7 +23,7 @@ public sealed class RequestOtpHandler(
             throw new AppException(ErrorKind.BadRequest, "invalid_purpose", "Purpose is required (max 64 characters).");
         var viaSms = ParseChannel(cmd.Channel);
         var purpose = cmd.Purpose.Trim();
-        var now = clock.UtcNow;
+        var now = clock.GetUtcNow();
 
         var active = await otps.GetActiveAsync(client.Id, phone.E164, purpose, ct);
         if (active.FirstOrDefault(c => c.ResendAvailableAt > now) is { } recent)
@@ -33,7 +33,7 @@ public sealed class RequestOtpHandler(
         if (!limiter.TryAcquire($"otp:client:{client.Id}", options.PerClientPerMinute, TimeSpan.FromMinutes(1))
             || !limiter.TryAcquire($"otp:phone:{client.Id}:{phone.E164}", options.PerPhonePerHour, TimeSpan.FromHours(1)))
             throw new AppException(ErrorKind.TooManyRequests, "otp_rate_limited", "Too many code requests.", 60);
-        await SendTextHandler.EnsureWithinDailyLimitAsync(client, messages, clock, ct);
+        await dailyLimit.EnsureWithinAsync(client, ct);
 
         var id = Guid.NewGuid();
         var code = codes.GenerateNumeric(6);
@@ -96,7 +96,7 @@ public sealed class RequestOtpHandler(
             catch (ProviderException ex) { error = ex.Message; }
         }
 
-        var message = Message.Queue(clientId, sessionId, TargetType.Phone, phone.Masked, clock.UtcNow);
+        var message = Message.Queue(clientId, sessionId, TargetType.Phone, phone.Masked, clock.GetUtcNow());
         if (sent) message.MarkSent(); else message.MarkFailed(error ?? "delivery failed");
         await messages.AddAsync(message, ct);
         return sent;
@@ -105,7 +105,7 @@ public sealed class RequestOtpHandler(
 
 public sealed record VerifyOtpResult(string Token, int ExpiresInSeconds);
 
-public sealed class VerifyOtpHandler(IOtpRepository otps, IOtpHasher hasher, ITokenIssuer tokens, IClock clock, OtpOptions options)
+public sealed class VerifyOtpHandler(IOtpRepository otps, IOtpHasher hasher, ITokenIssuer tokens, TimeProvider clock, OtpOptions options)
 {
     private static readonly TimeSpan TokenLifetime = TimeSpan.FromMinutes(5);
 
@@ -115,7 +115,7 @@ public sealed class VerifyOtpHandler(IOtpRepository otps, IOtpHasher hasher, ITo
             ?? throw new AppException(ErrorKind.NotFound, "otp_not_found", "Challenge not found.");
 
         var matches = hasher.Verify(challenge.Id, code ?? "", challenge.CodeHash);
-        var result = challenge.Attempt(matches, clock.UtcNow);
+        var result = challenge.Attempt(matches, clock.GetUtcNow());
         await otps.UpdateAsync([challenge], ct);
 
         return result switch

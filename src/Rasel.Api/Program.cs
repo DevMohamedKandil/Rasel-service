@@ -5,6 +5,7 @@ using Rasel.Api.Endpoints;
 using Rasel.Application;
 using Rasel.Application.Common;
 using Rasel.Infrastructure;
+using Rasel.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
@@ -24,7 +25,7 @@ builder.Services.AddSwaggerGen(o =>
 
 var app = builder.Build();
 
-await DatabaseSeeder.InitializeAsync(app.Services, config, app.Logger);
+await app.Services.InitializeRaselAsync();
 
 app.UseExceptionHandler();
 app.UseSwagger();

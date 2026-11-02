@@ -11,10 +11,11 @@ using Rasel.Infrastructure.Providers;
 
 namespace Rasel.Api.Tests;
 
-public sealed class TestClock : IClock
+public sealed class TestClock : TimeProvider
 {
     public DateTimeOffset UtcNow { get; private set; } = DateTimeOffset.UtcNow;
     public void Advance(TimeSpan by) => UtcNow += by;
+    public override DateTimeOffset GetUtcNow() => UtcNow;
 }
 
 /// <summary>An isolated API instance: own SQLite file, controllable clock, no queue delay.</summary>
@@ -35,7 +36,7 @@ public sealed class RaselFactory(int dailyLimit = 1000) : WebApplicationFactory<
         builder.UseSetting("Seed:DevDailyMessageLimit", dailyLimit.ToString());
         builder.UseSetting("Queue:MinDelayMs", "0");
         builder.UseSetting("Queue:MaxDelayMs", "0");
-        builder.ConfigureTestServices(services => services.Replace(ServiceDescriptor.Singleton<IClock>(Clock)));
+        builder.ConfigureTestServices(services => services.Replace(ServiceDescriptor.Singleton<TimeProvider>(Clock)));
     }
 
     public HttpClient CreateAuthorizedClient()

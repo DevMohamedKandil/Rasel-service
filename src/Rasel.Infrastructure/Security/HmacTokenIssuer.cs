@@ -5,36 +5,23 @@ using Rasel.Application.Ports;
 
 namespace Rasel.Infrastructure.Security;
 
-public sealed class HmacOtpHasher(string pepper) : IOtpHasher
-{
-    private readonly byte[] _key = Encoding.UTF8.GetBytes(pepper);
-
-    // The challenge id is mixed in so identical codes never share a hash.
-    public string Hash(Guid challengeId, string code) =>
-        Convert.ToHexString(HMACSHA256.HashData(_key, Encoding.UTF8.GetBytes($"{challengeId:N}:{code}")));
-
-    public bool Verify(Guid challengeId, string code, string hash) =>
-        CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(Hash(challengeId, code)), Encoding.ASCII.GetBytes(hash));
-}
-
-public sealed class CsprngCodeGenerator : ICodeGenerator
-{
-    public string GenerateNumeric(int digits) =>
-        RandomNumberGenerator.GetInt32((int)Math.Pow(10, digits)).ToString().PadLeft(digits, '0');
-}
-
 /// <summary>Issues compact HS256 JWTs the calling project can validate with the shared secret.</summary>
-public sealed class HmacTokenIssuer(string secret, IClock clock) : ITokenIssuer
+public sealed class HmacTokenIssuer(string secret, TimeProvider clock) : ITokenIssuer
 {
+    public const string Issuer = "rasel";
+    public const string Audience = "rasel-otp-verified";
+
     private readonly byte[] _key = Encoding.UTF8.GetBytes(secret);
 
     public string Issue(Guid clientId, string phoneE164, string purpose, TimeSpan lifetime)
     {
-        var now = clock.UtcNow;
+        var now = clock.GetUtcNow();
         var header = Encode(new { alg = "HS256", typ = "JWT" });
         var payload = Encode(new
         {
-            iss = "rasel",
+            iss = Issuer,
+            aud = Audience,
+            jti = Guid.NewGuid(),
             clientId,
             phone = phoneE164,
             purpose,

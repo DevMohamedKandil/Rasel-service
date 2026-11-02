@@ -17,6 +17,7 @@ public static class DependencyInjection
         services.AddScoped<RequestOtpHandler>();
         services.AddScoped<VerifyOtpHandler>();
         services.AddScoped<MessageSender>();
+        services.AddScoped<DailyLimitGuard>();
         return services;
     }
 }
