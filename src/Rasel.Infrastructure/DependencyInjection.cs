@@ -53,6 +53,7 @@ public static class DependencyInjection
             sp.GetRequiredService<IOptions<SecurityOptions>>().Value.TokenSecret, sp.GetRequiredService<TimeProvider>()));
         services.AddSingleton<IRateLimiter, SlidingWindowRateLimiter>();
 
+        services.AddHostedService<DatabaseInitializerService>(); // must stay before the worker
         services.AddHostedService<OutboxWorker>();
 
         services.AddSingleton(sp => sp.GetRequiredService<IOptions<WebhookOptions>>().Value);

@@ -8,7 +8,6 @@ using Rasel.Api.Endpoints;
 using Rasel.Api.Security;
 using Rasel.Application;
 using Rasel.Infrastructure;
-using Rasel.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
@@ -44,8 +43,6 @@ if (builder.Environment.IsDevelopment())
 }
 
 var app = builder.Build();
-
-await app.Services.InitializeRaselAsync();
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
