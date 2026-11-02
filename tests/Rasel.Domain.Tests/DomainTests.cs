@@ -86,14 +86,77 @@ public class OtpChallengeTests
         c.Supersede();
         Assert.Equal(OtpStatus.Consumed, c.Status);
     }
+    private static Message NewMessage() =>
+        Message.Queue(Guid.NewGuid(), Guid.NewGuid(), TargetType.Phone, "+20*******567", "+201001234567", "secret text", null, null, Now);
 
     [Fact]
-    public void Message_failure_keeps_error_and_no_body_property_exists()
+    public void Pending_message_keeps_body_and_destination_until_terminal()
     {
-        var m = Message.Queue(Guid.NewGuid(), Guid.NewGuid(), TargetType.Phone, "+20*******567", Now);
-        m.MarkFailed("boom");
+        var m = NewMessage();
+        Assert.Equal("secret text", m.Body);
+        Assert.Equal("+201001234567", m.Destination);
+
+        m.MarkSent(Now);
+        Assert.Equal(MessageStatus.Sent, m.Status);
+        Assert.Null(m.Body);
+        Assert.Null(m.Destination);
+        Assert.Equal(Now, m.SentAt);
+    }
+
+    [Fact]
+    public void Permanent_failure_ends_the_message_and_clears_content()
+    {
+        var m = NewMessage();
+        m.RecordFailure("boom", transient: false, Now, maxAttempts: 5, TimeSpan.FromSeconds(5));
         Assert.Equal(MessageStatus.Failed, m.Status);
-        Assert.Null(typeof(Message).GetProperty("Text"));
-        Assert.Null(typeof(Message).GetProperty("Body"));
+        Assert.Equal("boom", m.Error);
+        Assert.Null(m.Body);
+        Assert.Null(m.Destination);
+    }
+
+    [Fact]
+    public void Transient_failure_reschedules_until_attempts_are_exhausted()
+    {
+        var m = NewMessage();
+        m.Lease(Now, TimeSpan.FromMinutes(2));
+
+        m.RecordFailure("timeout", transient: true, Now, maxAttempts: 3, TimeSpan.FromSeconds(10));
+        Assert.Equal(MessageStatus.Queued, m.Status);
+        Assert.Equal(Now.AddSeconds(10), m.NextAttemptAt);
+        Assert.Null(m.LeasedUntil);
+        Assert.Equal("secret text", m.Body);
+
+        m.RecordFailure("timeout", transient: true, Now, maxAttempts: 3, TimeSpan.FromSeconds(20));
+        Assert.Equal(MessageStatus.Queued, m.Status);
+
+        m.RecordFailure("timeout", transient: true, Now, maxAttempts: 3, TimeSpan.FromSeconds(40));
+        Assert.Equal(MessageStatus.Failed, m.Status);
+        Assert.Equal(3, m.Attempts);
+        Assert.Null(m.Body);
+    }
+
+    [Fact]
+    public void Every_state_change_bumps_the_concurrency_version()
+    {
+        var m = NewMessage();
+        var v = m.Version;
+        m.Lease(Now, TimeSpan.FromSeconds(30));
+        Assert.True(m.Version > v);
+
+        var c = NewChallenge();
+        var cv = c.Version;
+        c.Attempt(false, Now);
+        Assert.True(c.Version > cv);
+    }
+
+    [Fact]
+    public void Terminal_challenge_attempts_do_not_change_version()
+    {
+        var c = NewChallenge();
+        c.Attempt(true, Now);
+        var v = c.Version;
+        c.Attempt(true, Now);
+        c.Supersede();
+        Assert.Equal(v, c.Version);
     }
 }

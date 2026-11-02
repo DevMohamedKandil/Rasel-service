@@ -18,6 +18,12 @@ public class OtpChallenge
     public DateTimeOffset? ConsumedAt { get; private set; }
     public OtpStatus Status { get; private set; }
 
+    /// <summary>
+    /// Optimistic concurrency token. Bumped by every state change, so two writers that loaded the same version
+    /// cannot both succeed (one gets a concurrency conflict and must reload).
+    /// </summary>
+    public long Version { get; private set; }
+
     public static OtpChallenge Issue(
         Guid id, Guid clientId, string phoneE164, string purpose, string codeHash,
         DateTimeOffset now, TimeSpan ttl, TimeSpan resendCooldown, int maxAttempts) => new()
@@ -28,7 +34,9 @@ public class OtpChallenge
 
     public void Supersede()
     {
-        if (Status == OtpStatus.Active) Status = OtpStatus.Superseded;
+        if (Status != OtpStatus.Active) return;
+        Status = OtpStatus.Superseded;
+        Version++;
     }
 
     /// <summary>Applies one verification attempt. <paramref name="codeMatches"/> is the result of a constant-time hash comparison.</summary>
@@ -42,6 +50,7 @@ public class OtpChallenge
             case OtpStatus.Expired: return OtpAttemptResult.Expired;
         }
 
+        Version++;
         if (now >= ExpiresAt)
         {
             Status = OtpStatus.Expired;

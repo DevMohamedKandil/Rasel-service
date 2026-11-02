@@ -34,8 +34,9 @@ public sealed class RaselFactory(int dailyLimit = 1000) : WebApplicationFactory<
         builder.UseSetting("Database:Path", _dbPath);
         builder.UseSetting("Seed:DevApiKey", ApiKey);
         builder.UseSetting("Seed:DevDailyMessageLimit", dailyLimit.ToString());
-        builder.UseSetting("Queue:MinDelayMs", "0");
-        builder.UseSetting("Queue:MaxDelayMs", "0");
+        builder.UseSetting("Outbox:MinDelayMs", "0");
+        builder.UseSetting("Outbox:MaxDelayMs", "0");
+        builder.UseSetting("Outbox:PollIntervalMs", "20");
         builder.ConfigureTestServices(services => services.Replace(ServiceDescriptor.Singleton<TimeProvider>(Clock)));
     }
 

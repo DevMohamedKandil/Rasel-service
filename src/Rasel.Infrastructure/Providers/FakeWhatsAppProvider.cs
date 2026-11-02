@@ -19,6 +19,9 @@ public sealed class FakeWhatsAppProvider : IWhatsAppProvider
     /// <summary>When true every send fails, to exercise failure paths.</summary>
     public bool FailSends { get; set; }
 
+    /// <summary>When true, injected failures are reported as transient (the outbox retries them).</summary>
+    public bool FailTransiently { get; set; }
+
     public IReadOnlyList<FakeSentMessage> SentMessages
     {
         get { lock (_gate) return [.. _sent]; }
@@ -56,10 +59,10 @@ public sealed class FakeWhatsAppProvider : IWhatsAppProvider
         lock (_gate) return Task.FromResult(_sessions.GetValueOrDefault(sessionId, SessionStatus.Failed));
     }
 
-    public Task SendTextToPhoneAsync(Guid sessionId, string phoneE164, string text, CancellationToken ct) =>
+    public Task SendTextToPhoneAsync(Guid sessionId, string phoneE164, string text, Guid messageId, CancellationToken ct) =>
         Record(new FakeSentMessage(sessionId, phoneE164, false, text));
 
-    public Task SendTextToGroupAsync(Guid sessionId, string groupName, string text, CancellationToken ct)
+    public Task SendTextToGroupAsync(Guid sessionId, string groupName, string text, Guid messageId, CancellationToken ct)
     {
         lock (_gate)
         {
@@ -83,7 +86,7 @@ public sealed class FakeWhatsAppProvider : IWhatsAppProvider
         lock (_gate)
         {
             if (FailSends || _sessions.GetValueOrDefault(message.SessionId) != SessionStatus.Connected)
-                throw new ProviderException("Fake WhatsApp send failed.");
+                throw new ProviderException("Fake WhatsApp send failed.", FailTransiently);
             _sent.Add(message);
         }
 

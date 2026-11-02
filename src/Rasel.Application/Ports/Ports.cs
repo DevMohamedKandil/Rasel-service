@@ -17,9 +17,10 @@ public interface IWhatsAppProvider
     Task StopSessionAsync(Guid sessionId, CancellationToken ct);
     Task<string?> GetQrAsync(Guid sessionId, CancellationToken ct);
     Task<SessionStatus> GetStatusAsync(Guid sessionId, CancellationToken ct);
-    Task SendTextToPhoneAsync(Guid sessionId, string phoneE164, string text, CancellationToken ct);
+    /// <param name="messageId">Stable per message, so a real provider can de-duplicate a retried send.</param>
+    Task SendTextToPhoneAsync(Guid sessionId, string phoneE164, string text, Guid messageId, CancellationToken ct);
     /// <summary>Throws <see cref="ProviderException"/> unless exactly one group has this exact name.</summary>
-    Task SendTextToGroupAsync(Guid sessionId, string groupName, string text, CancellationToken ct);
+    Task SendTextToGroupAsync(Guid sessionId, string groupName, string text, Guid messageId, CancellationToken ct);
     Task<IReadOnlyList<GroupInfo>> FindGroupsByNameAsync(Guid sessionId, string exactName, CancellationToken ct);
 }
 
@@ -46,26 +47,32 @@ public interface ISessionRepository
 public interface IMessageRepository
 {
     Task<Message?> GetAsync(Guid id, CancellationToken ct);
+    Task<Message?> FindByIdempotencyKeyAsync(Guid clientId, string key, CancellationToken ct);
     Task<int> CountSinceAsync(Guid clientId, DateTimeOffset since, CancellationToken ct);
-    Task AddAsync(Message message, CancellationToken ct);
-    Task UpdateAsync(Message message, CancellationToken ct);
+
+    /// <summary>Returns false (and stores nothing) when another message already owns the same (client, idempotency key).</summary>
+    Task<bool> TryAddAsync(Message message, CancellationToken ct);
+
+    /// <summary>Persists changes; false when the row was changed by someone else since it was loaded.</summary>
+    Task<bool> TrySaveAsync(Message message, CancellationToken ct);
+
+    /// <summary>Leases up to <paramref name="take"/> due messages for this worker. Messages lost to a concurrent claimer are skipped.</summary>
+    Task<IReadOnlyList<Message>> ClaimDueAsync(DateTimeOffset now, TimeSpan lease, int take, CancellationToken ct);
 }
 
 public interface IOtpRepository
 {
     Task<OtpChallenge?> GetAsync(Guid id, Guid clientId, CancellationToken ct);
     Task<IReadOnlyList<OtpChallenge>> GetActiveAsync(Guid clientId, string phoneE164, string purpose, CancellationToken ct);
-    Task AddAsync(OtpChallenge challenge, CancellationToken ct);
-    Task UpdateAsync(IEnumerable<OtpChallenge> challenges, CancellationToken ct);
-}
 
-/// <summary>A message waiting to be sent. The text lives only in memory until it is delivered.</summary>
-public sealed record QueuedMessage(Guid MessageId, Guid ClientId, Guid SessionId, TargetType TargetType, string Target, string Text);
+    /// <summary>Returns false when an Active challenge for the same (client, phone, purpose) already exists.</summary>
+    Task<bool> TryAddAsync(OtpChallenge challenge, CancellationToken ct);
 
-public interface IMessageQueue
-{
-    ValueTask EnqueueAsync(QueuedMessage message, CancellationToken ct);
-    ValueTask<QueuedMessage> DequeueAsync(CancellationToken ct);
+    /// <summary>
+    /// Persists changes atomically. Returns false on an optimistic-concurrency conflict; the conflicting
+    /// entities are detached so the caller must reload them before retrying.
+    /// </summary>
+    Task<bool> TrySaveAsync(IEnumerable<OtpChallenge> challenges, CancellationToken ct);
 }
 
 public interface IRateLimiter
@@ -87,7 +94,6 @@ public interface ICodeGenerator
 {
     string GenerateNumeric(int digits);
 }
-
 
 public interface IWebhookDispatcher
 {

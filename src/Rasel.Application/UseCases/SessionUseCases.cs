@@ -24,8 +24,19 @@ public sealed class CreateSessionHandler(ISessionRepository sessions, IWhatsAppP
 
         var session = Session.Start(clientId, name.Trim(), clock.GetUtcNow());
         await sessions.AddAsync(session, ct);
-        await provider.CreateSessionAsync(session.Id, ct);
-        session.UpdateStatus(await provider.GetStatusAsync(session.Id, ct), clock.GetUtcNow());
+        try
+        {
+            await provider.CreateSessionAsync(session.Id, ct);
+            session.UpdateStatus(await provider.GetStatusAsync(session.Id, ct), clock.GetUtcNow());
+        }
+        catch (ProviderException)
+        {
+            // Do not leave a session stuck in Starting when the provider is down.
+            session.UpdateStatus(SessionStatus.Failed, clock.GetUtcNow());
+            await sessions.UpdateAsync(session, CancellationToken.None);
+            throw;
+        }
+
         await sessions.UpdateAsync(session, ct);
         return new SessionDto(session.Id, session.Name, session.Status);
     }

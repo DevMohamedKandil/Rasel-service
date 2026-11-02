@@ -13,7 +13,7 @@ public class MessageHandlerTests
         var result = await h.SendText().HandleAsync(h.Client, new SendTextCommand(null, "+201001234567", null, "hello"), default);
 
         Assert.Equal(MessageStatus.Queued, result.Status);
-        Assert.Equal("hello", Assert.Single(h.Store.Queued).Text);
+        Assert.Equal("hello", Assert.Single(h.Store.Messages).Body);
         Assert.Empty(h.WhatsApp.SentMessages);
     }
 
@@ -22,7 +22,7 @@ public class MessageHandlerTests
     {
         var h = await Harness.CreateConnectedAsync();
         await h.SendText().HandleAsync(h.Client, new SendTextCommand(null, "+201001234567", null, "hello"), default);
-        await h.Sender().SendAsync(h.Store.Queued.Single(), default);
+        await h.Sender().SendAsync(h.Store.Messages.Single(), default);
 
         Assert.Equal("hello", Assert.Single(h.WhatsApp.SentMessages).Text);
         Assert.Equal(MessageStatus.Sent, h.Store.Messages.Single().Status);
@@ -34,7 +34,7 @@ public class MessageHandlerTests
         var h = await Harness.CreateConnectedAsync();
         await h.SendText().HandleAsync(h.Client, new SendTextCommand(null, "+201001234567", null, "hello"), default);
         h.WhatsApp.FailSends = true;
-        await h.Sender().SendAsync(h.Store.Queued.Single(), default);
+        await h.Sender().SendAsync(h.Store.Messages.Single(), default);
 
         var message = h.Store.Messages.Single();
         Assert.Equal(MessageStatus.Failed, message.Status);
@@ -47,7 +47,7 @@ public class MessageHandlerTests
         var h = await Harness.CreateConnectedAsync();
         h.WhatsApp.AddGroup("Ops");
         await h.SendText().HandleAsync(h.Client, new SendTextCommand(null, null, "Ops", "hi"), default);
-        Assert.Equal(TargetType.Group, h.Store.Queued.Single().TargetType);
+        Assert.Equal(TargetType.Group, h.Store.Messages.Single().TargetType);
     }
 
     [Theory]
@@ -61,7 +61,7 @@ public class MessageHandlerTests
 
         var ex = await Assert.ThrowsAsync<AppException>(() => h.SendText().HandleAsync(h.Client, new SendTextCommand(null, null, name, "hi"), default));
         Assert.Equal(expected, ex.Kind);
-        Assert.Empty(h.Store.Queued);
+        Assert.Empty(h.Store.Messages);
     }
 
     [Theory]

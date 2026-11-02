@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Rasel.Application.Ports;
+using Rasel.Infrastructure.Configuration;
 
 namespace Rasel.Infrastructure.Messaging;
 

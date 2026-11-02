@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Rasel.Application.Ports;
 using Rasel.Domain.Entities;
@@ -5,10 +6,44 @@ using Rasel.Domain.Enums;
 
 namespace Rasel.Infrastructure.Persistence;
 
+internal static class SaveHelpers
+{
+    /// <summary>Saves; on an optimistic-concurrency conflict detaches the stale entities and returns false.</summary>
+    public static async Task<bool> TrySaveAsync(this DbContext db, CancellationToken ct)
+    {
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            return true;
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            foreach (var entry in ex.Entries) entry.State = EntityState.Detached;
+            return false;
+        }
+    }
+
+    /// <summary>Adds the entity; on a unique-constraint violation detaches it and returns false.</summary>
+    public static async Task<bool> TryAddAsync<T>(this DbContext db, T entity, CancellationToken ct) where T : class
+    {
+        db.Add(entity);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            return true;
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is SqliteException { SqliteErrorCode: 19 })
+        {
+            db.Entry(entity).State = EntityState.Detached;
+            return false;
+        }
+    }
+}
+
 public sealed class ApiClientRepository(RaselDbContext db) : IApiClientRepository
 {
     public Task<ApiClient?> FindByKeyHashAsync(string apiKeyHash, CancellationToken ct) =>
-        db.ApiClients.FirstOrDefaultAsync(c => c.ApiKeyHash == apiKeyHash, ct);
+        db.ApiClients.AsNoTracking().FirstOrDefaultAsync(c => c.ApiKeyHash == apiKeyHash, ct);
 
     public Task<bool> AnyAsync(CancellationToken ct) => db.ApiClients.AnyAsync(ct);
 
@@ -40,16 +75,34 @@ public sealed class MessageRepository(RaselDbContext db) : IMessageRepository
 {
     public Task<Message?> GetAsync(Guid id, CancellationToken ct) => db.Messages.FirstOrDefaultAsync(m => m.Id == id, ct);
 
+    public Task<Message?> FindByIdempotencyKeyAsync(Guid clientId, string key, CancellationToken ct) =>
+        db.Messages.AsNoTracking().FirstOrDefaultAsync(m => m.ClientId == clientId && m.IdempotencyKey == key, ct);
+
     public Task<int> CountSinceAsync(Guid clientId, DateTimeOffset since, CancellationToken ct) =>
         db.Messages.CountAsync(m => m.ClientId == clientId && m.CreatedAt >= since, ct);
 
-    public async Task AddAsync(Message message, CancellationToken ct)
-    {
-        db.Messages.Add(message);
-        await db.SaveChangesAsync(ct);
-    }
+    public Task<bool> TryAddAsync(Message message, CancellationToken ct) => db.TryAddAsync(message, ct);
 
-    public Task UpdateAsync(Message message, CancellationToken ct) => db.SaveChangesAsync(ct);
+    public Task<bool> TrySaveAsync(Message message, CancellationToken ct) => db.TrySaveAsync(ct);
+
+    public async Task<IReadOnlyList<Message>> ClaimDueAsync(DateTimeOffset now, TimeSpan lease, int take, CancellationToken ct)
+    {
+        var due = await db.Messages
+            .Where(m => m.Status == MessageStatus.Queued && m.NextAttemptAt <= now && (m.LeasedUntil == null || m.LeasedUntil <= now))
+            .OrderBy(m => m.NextAttemptAt)
+            .Take(take)
+            .ToListAsync(ct);
+
+        var claimed = new List<Message>(due.Count);
+        foreach (var message in due)
+        {
+            message.Lease(now, lease);
+            // One save per message: a row lost to another claimer is skipped without discarding the others.
+            if (await db.TrySaveAsync(ct)) claimed.Add(message);
+        }
+
+        return claimed;
+    }
 }
 
 public sealed class OtpRepository(RaselDbContext db) : IOtpRepository
@@ -62,12 +115,8 @@ public sealed class OtpRepository(RaselDbContext db) : IOtpRepository
             .Where(c => c.ClientId == clientId && c.PhoneE164 == phoneE164 && c.Purpose == purpose && c.Status == OtpStatus.Active)
             .ToListAsync(ct);
 
-    public async Task AddAsync(OtpChallenge challenge, CancellationToken ct)
-    {
-        db.OtpChallenges.Add(challenge);
-        await db.SaveChangesAsync(ct);
-    }
+    public Task<bool> TryAddAsync(OtpChallenge challenge, CancellationToken ct) => db.TryAddAsync(challenge, ct);
 
     // Entities are tracked by the scoped context, so saving persists every change made by the handler.
-    public Task UpdateAsync(IEnumerable<OtpChallenge> challenges, CancellationToken ct) => db.SaveChangesAsync(ct);
+    public Task<bool> TrySaveAsync(IEnumerable<OtpChallenge> challenges, CancellationToken ct) => db.TrySaveAsync(ct);
 }

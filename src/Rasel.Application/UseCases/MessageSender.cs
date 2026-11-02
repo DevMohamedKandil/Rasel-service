@@ -1,32 +1,56 @@
+using Microsoft.Extensions.Logging;
+using Rasel.Application.Common;
 using Rasel.Application.Ports;
+using Rasel.Domain.Entities;
 using Rasel.Domain.Enums;
 
 namespace Rasel.Application.UseCases;
 
-/// <summary>Delivers one queued message and records the outcome. Called by the background worker.</summary>
-public sealed class MessageSender(IMessageRepository messages, IWhatsAppProvider provider, IWebhookDispatcher webhooks)
+/// <summary>
+/// Delivers one leased outbox message and records the outcome: sent, rescheduled with backoff (transient
+/// failure) or failed (permanent failure / attempts exhausted). Called by the outbox worker.
+/// </summary>
+public sealed class MessageSender(
+    IMessageRepository messages, IWhatsAppProvider provider, IWebhookDispatcher webhooks,
+    OutboxOptions options, TimeProvider clock, ILogger<MessageSender> logger)
 {
-    public async Task SendAsync(QueuedMessage queued, CancellationToken ct)
+    public async Task SendAsync(Message message, CancellationToken ct)
     {
-        var message = await messages.GetAsync(queued.MessageId, ct);
-        if (message is null) return;
-
         try
         {
-            if (queued.TargetType == TargetType.Phone)
-                await provider.SendTextToPhoneAsync(queued.SessionId, queued.Target, queued.Text, ct);
+            if (message.Body is null || message.Destination is null)
+                throw new ProviderException("Message has no content to send.");
+
+            if (message.TargetType == TargetType.Phone)
+                await provider.SendTextToPhoneAsync(message.SessionId, message.Destination, message.Body, message.Id, ct);
             else
-                await provider.SendTextToGroupAsync(queued.SessionId, queued.Target, queued.Text, ct);
-            message.MarkSent();
+                await provider.SendTextToGroupAsync(message.SessionId, message.Destination, message.Body, message.Id, ct);
+            message.MarkSent(clock.GetUtcNow());
         }
         catch (ProviderException ex)
         {
-            message.MarkFailed(ex.Message);
+            message.RecordFailure(PiiRedactor.Redact(ex.Message), ex.IsTransient, clock.GetUtcNow(),
+                options.MaxAttempts, options.BackoffFor(message.Attempts + 1));
         }
 
-        await messages.UpdateAsync(message, ct);
-        await webhooks.DispatchAsync(queued.ClientId,
+        // The provider call is done (or definitively failed): persist the outcome even during shutdown,
+        // otherwise a sent message would be sent again after restart.
+        if (!await messages.TrySaveAsync(message, CancellationToken.None))
+        {
+            logger.LogWarning("Message {MessageId} changed while it was being sent; outcome not saved", message.Id);
+            return;
+        }
+
+        if (message.Status == MessageStatus.Queued)
+        {
+            logger.LogInformation("Message {MessageId} attempt {Attempt} failed transiently, retry at {NextAttemptAt:o}",
+                message.Id, message.Attempts, message.NextAttemptAt);
+            return;
+        }
+
+        logger.LogInformation("Message {MessageId} finished as {Status} after {Attempts} attempt(s)", message.Id, message.Status, message.Attempts);
+        await webhooks.DispatchAsync(message.ClientId,
             message.Status == MessageStatus.Sent ? "message.sent" : "message.failed",
-            new { messageId = message.Id, status = message.Status.ToString(), error = message.Error }, ct);
+            new { messageId = message.Id, status = message.Status.ToString(), error = message.Error }, CancellationToken.None);
     }
 }
