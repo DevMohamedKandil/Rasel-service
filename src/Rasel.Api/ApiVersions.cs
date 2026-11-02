@@ -14,7 +14,13 @@ public static class ApiVersions
         var group = app.MapGroup($"/{version}");
         group.AddEndpointFilter(async (context, next) =>
         {
-            context.HttpContext.Response.Headers[HeaderName] = version;
+            // OnStarting: the exception handler clears headers set earlier, this one survives error responses.
+            var response = context.HttpContext.Response;
+            response.OnStarting(() =>
+            {
+                response.Headers[HeaderName] = version;
+                return Task.CompletedTask;
+            });
             return await next(context);
         });
         return group;

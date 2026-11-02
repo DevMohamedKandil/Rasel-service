@@ -35,6 +35,9 @@ public sealed class AppExceptionHandler(IProblemDetailsService problems, ILogger
                 (status, code, detail) = (StatusCodes.Status502BadGateway, "provider_unavailable", "The WhatsApp provider is unavailable.");
                 retryAfter = provider.IsTransient ? 5 : null;
                 break;
+            case BadHttpRequestException badRequest:
+                (status, code, detail) = (badRequest.StatusCode, "invalid_request", "The request could not be read: malformed body or parameters.");
+                break;
             case OperationCanceledException when context.RequestAborted.IsCancellationRequested:
                 return true; // the client went away; nothing to write
             default:

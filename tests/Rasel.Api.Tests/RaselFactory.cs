@@ -19,7 +19,7 @@ public sealed class TestClock : TimeProvider
 }
 
 /// <summary>An isolated API instance: own SQLite file, controllable clock, no queue delay.</summary>
-public sealed class RaselFactory(int dailyLimit = 1000) : WebApplicationFactory<Program>
+public sealed class RaselFactory(int dailyLimit = 1000, Dictionary<string, string>? settings = null, string environment = "Development") : WebApplicationFactory<Program>
 {
     public const string ApiKey = "test-api-key-0123456789";
     private readonly string _dbPath = Path.Combine(@"C:\DevSpace\claude-scratch\rasel-tests", $"{Guid.NewGuid():N}.db");
@@ -37,6 +37,8 @@ public sealed class RaselFactory(int dailyLimit = 1000) : WebApplicationFactory<
         builder.UseSetting("Outbox:MinDelayMs", "0");
         builder.UseSetting("Outbox:MaxDelayMs", "0");
         builder.UseSetting("Outbox:PollIntervalMs", "20");
+        builder.UseEnvironment(environment);
+        foreach (var (key, value) in settings ?? []) builder.UseSetting(key, value);
         builder.ConfigureTestServices(services => services.Replace(ServiceDescriptor.Singleton<TimeProvider>(Clock)));
     }
 
