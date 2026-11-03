@@ -17,7 +17,7 @@ public sealed class GetMessageHandler(IMessageRepository messages)
         if (m is null || m.ClientId != clientId)
             throw new AppException(ErrorKind.NotFound, "message_not_found", "Message not found.");
         // The stored error text is free-form provider output, so only a coarse code is exposed.
-        var code = m.Error is null ? null : m.Status == MessageStatus.Queued ? "provider_transient_error" : "provider_error";
+        var code = m.Error is null ? null : ErrorCodes.Parse(m.Error) ?? (m.Status == MessageStatus.Queued ? ErrorCodes.ProviderTransient : ErrorCodes.ProviderError);
         return new MessageStatusDto(m.Id, m.Status.ToString(), m.Attempts, m.CreatedAt, m.SentAt,
             m.Status == MessageStatus.Queued ? m.NextAttemptAt : null, code);
     }

@@ -30,11 +30,11 @@ public sealed class MessageSender(
         }
         catch (ProviderException ex) when (ex.IsNotReady && clock.GetUtcNow() - message.CreatedAt < TimeSpan.FromMinutes(options.NotReadyMaxAgeMinutes))
         {
-            message.Defer(PiiRedactor.Redact(ex.Message), clock.GetUtcNow(), TimeSpan.FromSeconds(options.NotReadyRetrySeconds));
+            message.Defer(ErrorCodes.Tag(ex.Code ?? ErrorCodes.SessionNotReady, PiiRedactor.Redact(ex.Message)), clock.GetUtcNow(), TimeSpan.FromSeconds(options.NotReadyRetrySeconds));
         }
         catch (ProviderException ex)
         {
-            message.RecordFailure(PiiRedactor.Redact(ex.Message), ex.IsTransient, clock.GetUtcNow(),
+            message.RecordFailure(ErrorCodes.Tag(ex.Code, PiiRedactor.Redact(ex.Message)), ex.IsTransient, clock.GetUtcNow(),
                 options.MaxAttempts, options.BackoffFor(message.Attempts + 1));
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)

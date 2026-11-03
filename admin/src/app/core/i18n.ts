@@ -229,6 +229,13 @@ const D: Record<string, { ar: string; en: string }> = {
   'err.provider_error': { ar: 'واتساب رفض الإرسال أو لم يستجب.', en: 'WhatsApp refused or did not answer.' },
   'err.provider_transient_error': { ar: 'مشكلة مؤقتة في واتساب، وسيُعاد الإرسال تلقائياً.', en: 'A temporary WhatsApp problem; sending will be retried automatically.' },
   'err.timeout': { ar: 'انتهت مهلة الاتصال بواتساب.', en: 'The connection to WhatsApp timed out.' },
+  'err.group_not_found_on_session': { ar: 'الرقم المرسَل منه ليس عضواً في هذه المجموعة (أو اسمها لا يطابق). اختر الجلسة الصحيحة أو أضف رقم الجلسة إلى المجموعة ثم أعد الإرسال.', en: 'The sending number is not a member of this group (or the name does not match exactly). Pick the right session or add the session number to the group, then send again.' },
+  'err.group_ambiguous': { ar: 'يوجد أكثر من مجموعة بنفس الاسم على هذه الجلسة. غيّر اسم إحداها حتى يصبح الاسم فريداً ثم أعد الإرسال.', en: 'More than one group on this session has this exact name. Rename one so the name is unique, then send again.' },
+  'err.session_not_ready': { ar: 'جلسة واتساب غير جاهزة بعد (قيد التشغيل أو تحتاج مسح QR). افتح صفحة الجلسات وتأكد أنها متصلة.', en: 'The WhatsApp session is not ready yet (starting or needs a QR scan). Open Sessions and make sure it is connected.' },
+  'err.send_failed': { ar: 'واتساب فشل أثناء الإرسال رغم أن الجلسة جاهزة. أعد المحاولة بعد قليل، وإن تكرر راجع سجل الجلسة.', en: 'WhatsApp failed while sending although the session is ready. Try again shortly; if it repeats, check the session log.' },
+  'err.invalid_request': { ar: 'رفض واتساب الطلب لأن البيانات غير صالحة (رقم أو نص). راجع المستلم والنص.', en: 'WhatsApp rejected the request as invalid (number or text). Check the recipient and the text.' },
+  'err.provider_timeout': { ar: 'انتهت مهلة الرد من محرك واتساب. سيُعاد الإرسال، وإن تكرر تحقق من حالة الجلسة.', en: 'The WhatsApp engine timed out. Sending will be retried; if it repeats, check the session status.' },
+  'err.sidecar_unreachable': { ar: 'تعذر الوصول إلى محرك واتساب الخاص بالجلسة. تأكد أنه يعمل ثم أعد المحاولة.', en: 'The session WhatsApp engine could not be reached. Make sure it is running, then try again.' },
   'err.generic': { ar: 'حدث خطأ أثناء الإرسال', en: 'An error occurred while sending' },
 
   'hl.title': { ar: 'حالة الخدمة', en: 'Service health' },

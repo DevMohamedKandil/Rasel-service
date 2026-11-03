@@ -26,7 +26,7 @@ public sealed class BridgeWhatsAppProvider(HttpClient http, Rasel.Infrastructure
 {
     /// <summary>Managed mode: no endpoint until the supervised sidecar answers. That is a transient failure, so queued sends wait instead of failing.</summary>
     private (string BaseUrl, string Token) EndpointFor(Guid sessionId) =>
-        endpoint.Resolve(sessionId) ?? throw new ProviderException("The WhatsApp engine of this session is not ready yet.", isTransient: true, isNotReady: true);
+        endpoint.Resolve(sessionId) ?? throw new ProviderException("The WhatsApp engine of this session is not ready yet.", isTransient: true, isNotReady: true, code: ErrorCodes.SessionNotReady);
 
     public async Task CreateSessionAsync(Guid sessionId, CancellationToken ct)
     {
@@ -114,10 +114,10 @@ public sealed class BridgeWhatsAppProvider(HttpClient http, Rasel.Infrastructure
         {
             response = await http.SendAsync(request, ct);
         }
-        catch (BrokenCircuitException) { throw new ProviderException("WhatsApp bridge circuit is open.", isTransient: true); }
-        catch (TimeoutRejectedException) { throw new ProviderException("WhatsApp bridge timed out.", isTransient: true); }
-        catch (HttpRequestException ex) { throw new ProviderException($"WhatsApp bridge unreachable ({ex.HttpRequestError}).", isTransient: true); }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested) { throw new ProviderException("WhatsApp bridge timed out.", isTransient: true); }
+        catch (BrokenCircuitException) { throw new ProviderException("WhatsApp bridge circuit is open.", isTransient: true, code: ErrorCodes.SidecarUnreachable); }
+        catch (TimeoutRejectedException) { throw new ProviderException("WhatsApp bridge timed out.", isTransient: true, code: ErrorCodes.Timeout); }
+        catch (HttpRequestException ex) { throw new ProviderException($"WhatsApp bridge unreachable ({ex.HttpRequestError}).", isTransient: true, code: ErrorCodes.SidecarUnreachable); }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested) { throw new ProviderException("WhatsApp bridge timed out.", isTransient: true, code: ErrorCodes.Timeout); }
 
         if (response.IsSuccessStatusCode || !throwOnError) return response;
 
@@ -134,7 +134,22 @@ public sealed class BridgeWhatsAppProvider(HttpClient http, Rasel.Infrastructure
             _ => "",
         };
         // 503 = the engine is up but its WhatsApp client is not ready (needs QR / loading): queued messages wait without using up attempts.
-        throw new ProviderException($"WhatsApp bridge returned {(int)status}{meaning}{(detail is null ? "" : ": " + detail)}", transient, isNotReady: status == HttpStatusCode.ServiceUnavailable);
+        throw new ProviderException($"WhatsApp bridge returned {(int)status}{meaning}{(detail is null ? "" : ": " + detail)}", transient, isNotReady: status == HttpStatusCode.ServiceUnavailable, code: CodeFor(status, path));
+    }
+
+    private static string? CodeFor(HttpStatusCode status, string path)
+    {
+        var group = path.StartsWith("/doSendPersonalizedTextToGroup", StringComparison.Ordinal);
+        return status switch
+        {
+            HttpStatusCode.ServiceUnavailable => ErrorCodes.SessionNotReady,
+            HttpStatusCode.NotFound when group => ErrorCodes.GroupNotFound,
+            HttpStatusCode.Conflict when group => ErrorCodes.GroupAmbiguous,
+            HttpStatusCode.BadRequest => ErrorCodes.InvalidRequest,
+            HttpStatusCode.RequestTimeout => ErrorCodes.Timeout,
+            _ when (int)status >= 500 => ErrorCodes.SendFailed,
+            _ => null,
+        };
     }
 
     private static async Task<string?> ReadTextAsync(HttpResponseMessage response, CancellationToken ct)

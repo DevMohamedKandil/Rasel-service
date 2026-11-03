@@ -185,7 +185,7 @@ Delivery state only. It never returns the text, the destination or an OTP code.
 | `status` | `Queued`, `Sent`, `Failed` |
 | `attempts` | Send attempts so far |
 | `nextAttemptAt` | Only while `Queued`; when the next attempt is due |
-| `lastErrorCode` | `null`, `provider_transient_error` (still `Queued`, will retry) or `provider_error` (final `Failed`) |
+| `lastErrorCode` | `null`, `provider_transient_error` (still `Queued`, will retry) or a final-failure code. Specific causes: `group_not_found_on_session` (sender not a member of the group / name mismatch), `group_ambiguous`, `session_not_ready`, `send_failed`, `invalid_request`, `provider_timeout`, `sidecar_unreachable`; `provider_error` stays for unknown causes. Clients must tolerate new codes |
 
 `404 message_not_found` for an unknown id or another client's message. Observed in a local run: a queued message was `Sent` about 1.5 seconds after creation, with `attempts: 1`.
 

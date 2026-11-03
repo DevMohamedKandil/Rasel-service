@@ -20,6 +20,8 @@ describe('messageView', () => {
   });
   it('maps error codes to friendly keys, unknown to generic, none to null', () => {
     expect(errorKey('provider_error')).toBe('err.provider_error');
+    expect(errorKey('group_not_found_on_session')).toBe('err.group_not_found_on_session');
+    for (const c of ['group_ambiguous', 'session_not_ready', 'send_failed', 'invalid_request', 'provider_timeout', 'sidecar_unreachable']) expect(errorKey(c)).toBe('err.' + c);
     expect(errorKey('weird_x')).toBe('err.generic');
     expect(errorKey(null)).toBeNull();
   });

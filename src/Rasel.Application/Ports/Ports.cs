@@ -6,8 +6,10 @@ namespace Rasel.Application.Ports;
 public sealed record GroupInfo(string Id, string Name);
 
 /// <summary>A provider failure. Transient failures (timeouts, 5xx, open circuit) are retried by the outbox; permanent ones are not.</summary>
-public sealed class ProviderException(string message, bool isTransient = false, bool isNotReady = false) : Exception(message)
+public sealed class ProviderException(string message, bool isTransient = false, bool isNotReady = false, string? code = null) : Exception(message)
 {
+    /// <summary>Safe machine code for the cause (see ErrorCodes); null = unknown (reported as provider_error).</summary>
+    public string? Code { get; } = code;
     public bool IsTransient { get; } = isTransient;
     /// <summary>The session's own engine is not up yet (preparing, needs a QR, restarting). Queued messages wait for it without using up attempts (see OutboxOptions.NotReadyMaxAgeMinutes).</summary>
     public bool IsNotReady { get; } = isNotReady;

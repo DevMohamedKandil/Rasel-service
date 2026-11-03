@@ -130,6 +130,26 @@ public class BridgeProviderTests
         var ex = await Assert.ThrowsAsync<ProviderException>(() => provider.SendTextToGroupAsync(Guid.NewGuid(), "g", "t", Guid.NewGuid(), default));
         Assert.Equal(transient, ex.IsTransient);
     }
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound, "group_not_found_on_session")]
+    [InlineData(HttpStatusCode.Conflict, "group_ambiguous")]
+    [InlineData(HttpStatusCode.ServiceUnavailable, "session_not_ready")]
+    [InlineData(HttpStatusCode.BadRequest, "invalid_request")]
+    [InlineData(HttpStatusCode.InternalServerError, "send_failed")]
+    public async Task Group_send_failures_carry_a_specific_safe_code(HttpStatusCode status, string code)
+    {
+        var provider = Build(new Stub((_, _) => Text(status, "x")));
+        var ex = await Assert.ThrowsAsync<ProviderException>(() => provider.SendTextToGroupAsync(Guid.NewGuid(), "g", "t", Guid.NewGuid(), default));
+        Assert.Equal(code, ex.Code);
+    }
+
+    [Theory]
+    [InlineData("[group_not_found_on_session] bridge 404", "group_not_found_on_session")]
+    [InlineData("[evil<script>] x", null)]
+    [InlineData("plain old text", null)]
+    public void Error_code_is_parsed_only_from_the_allow_list(string stored, string? expected) =>
+        Assert.Equal(expected, Rasel.Application.Common.ErrorCodes.Parse(stored));
+
 
     [Fact]
     public async Task Status_probe_distinguishes_ready_from_not_ready_without_sending()

@@ -17,7 +17,8 @@ export function messageView(status: string, attempts: number): MsgView {
 }
 function s(key: Step['key'], state: StepState): Step { return { key, state }; }
 
-const KNOWN: Record<string, string> = { no_session: 'err.no_session', provider_error: 'err.provider_error', provider_transient_error: 'err.provider_transient_error', timeout: 'err.timeout' };
+const CODES = ['no_session', 'provider_error', 'provider_transient_error', 'timeout', 'group_not_found_on_session', 'group_ambiguous', 'session_not_ready', 'send_failed', 'invalid_request', 'provider_timeout', 'sidecar_unreachable'];
+const KNOWN: Record<string, string> = Object.fromEntries(CODES.map(c => [c, 'err.' + c]));
 /** Translation key for a backend error code; unknown codes fall back to a generic sentence. */
 export function errorKey(code: string | null | undefined): string | null {
   if (!code) return null;

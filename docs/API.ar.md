@@ -20,7 +20,7 @@
 | `GET /v1/sessions/{id}/qr` | بيانات الربط | 200 `{sessionId,status,qr}` | في Fake يصبح فتح الرمز سبباً في اتصال الجلسة |
 | `DELETE /v1/sessions/{id}` | إيقاف الجلسة | 204 | |
 | `POST /v1/messages` | وضع رسالة في الطابور | 202 `{messageId,status,replayed}` | `text` مطلوب حتى 4096؛ `phone` أو `groupName` (واحد فقط)؛ `sessionId` اختياري؛ ترويسة `Idempotency-Key` (حتى 128 حرف ASCII مرئي) |
-| `GET /v1/messages/{id}` | حالة الرسالة | 200 | `status`: Queued / Sent / Failed؛ `attempts`؛ `nextAttemptAt` أثناء الانتظار؛ `lastErrorCode`: `provider_transient_error` أو `provider_error` |
+| `GET /v1/messages/{id}` | حالة الرسالة | 200 | `status`: Queued / Sent / Failed؛ `attempts`؛ `nextAttemptAt` أثناء الانتظار؛ `lastErrorCode`: `provider_transient_error` أو رمز السبب: `group_not_found_on_session` (الرقم ليس عضواً في المجموعة) أو `group_ambiguous` أو `session_not_ready` أو `send_failed` أو `invalid_request` أو `provider_timeout` أو `sidecar_unreachable`؛ و`provider_error` للسبب غير المعروف |
 | `POST /v1/otp/request` | طلب رمز تحقق | 200 `{challengeId,expiresInSeconds:300,resendAfterSeconds:60}` | `phone`، `purpose` (حتى 64)، `channel` = whatsapp أو sms، `language` = ar للعربية وإلا الإنجليزية. الرمز لا يُعاد أبداً |
 | `POST /v1/otp/verify` | التحقق من الرمز | 200 `{token,expiresInSeconds:300}` | `challengeId` و`code` من 6 أرقام |
 | `GET /health/live` | الخدمة تعمل | 200 | |
