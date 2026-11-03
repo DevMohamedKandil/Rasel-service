@@ -216,7 +216,7 @@ public class HardeningTests
     [Fact]
     public async Task Transient_provider_failure_is_retried_by_the_background_worker_until_it_succeeds()
     {
-        await using var f = new RaselFactory(settings: new() { ["Outbox:BaseBackoffSeconds"] = "0", ["Outbox:MaxAttempts"] = "20" });
+        await using var f = new RaselFactory(settings: new() { ["Outbox:BaseBackoffSeconds"] = "1", ["Outbox:MaxAttempts"] = "20" });
         var c = f.CreateAuthorizedClient();
         var sessionId = await f.CreateConnectedSessionAsync(c);
         f.WhatsApp.FailSends = true;
@@ -226,9 +226,11 @@ public class HardeningTests
         Assert.Equal(HttpStatusCode.Accepted, accepted.StatusCode);
         var id = (await ReadAsync(accepted)).GetProperty("messageId").GetGuid();
 
-        await WaitForAsync(async () => (await LoadAsync(f, id)).Attempts >= 2);
+        // Deterministic: the retry is due only when the fake clock reaches it, so the worker cannot burn attempts while we look.
+        await WaitForAsync(async () => (await LoadAsync(f, id)).Attempts >= 1);
         Assert.Empty(f.WhatsApp.SentMessages);
         f.WhatsApp.FailSends = false;
+        f.Clock.Advance(TimeSpan.FromHours(1));
 
         await WaitForAsync(() => f.WhatsApp.SentMessages.Any(m => m.Text == "eventually"));
         await WaitForAsync(async () => (await LoadAsync(f, id)).Status == MessageStatus.Sent);

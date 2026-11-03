@@ -53,3 +53,10 @@ Every other API setting in the main README can be added to the `environment:` bl
 
 ## Sidecar supervision (required)
 The sidecar deliberately exits on unknown uncaught errors. Run it under a supervisor that restarts on exit (Docker `restart: unless-stopped`, NSSM, or the Scheduled Task with "restart on failure"), with a delay of a few seconds, and alert if it restarts repeatedly.
+
+## Several WhatsApp numbers (manual instances)
+One sidecar instance serves one linked number. Install one instance per number: `install-sidecar.ps1 -InstanceName sales -SharedToken <16+ chars> -Port 5302`. Each gets its own Scheduled Task `RaselSidecar-<InstanceName>`, its own session folder `C:Raselsessions<InstanceName>` and its own port. The script refuses an existing task name or a listening port unless `-Force`, always refuses port 5001 (Afzaz bridge), and defaults to ports from 5301. `-List` shows installed instances; `-Uninstall` removes the task and keeps the session data (delete the folder only to unlink the phone); `-DryRun` prints the plan without changing anything. Rasel talks to one sidecar at a time in Bridge mode; per-session routing to several sidecars is not implemented yet.
+
+## Several WhatsApp numbers (manual instances)
+
+One sidecar instance serves one linked number. Install one instance per number: `install-sidecar.ps1 -InstanceName sales -SharedToken <16+ chars> -Port 5302`. Each gets its own Scheduled Task `RaselSidecar-<InstanceName>`, its own session folder `C:Raselsessions<InstanceName>` and its own port. The script refuses an existing task name or a listening port unless `-Force`, always refuses port 5001 (Afzaz bridge), and defaults to ports from 5301. `-List` shows installed instances; `-Uninstall` removes the task and keeps the session data (delete the folder only to unlink the phone); `-DryRun` prints the plan without changing anything. In Bridge mode Rasel talks to one sidecar at a time; per-session routing to several sidecars is not implemented yet.
