@@ -20,9 +20,10 @@ Elevated PowerShell, .NET 10 SDK and Node 18+ installed:
 .\deploy\uninstall-api.ps1
 
 # Sidecar: a boot-time Scheduled Task (node.exe cannot be hosted by sc.exe); NSSM is the alternative, see the script header
-cd sidecar; npm install; cd ..
-.\deploy\install-sidecar.ps1 -SharedToken <16+ chars>
-.\deploy\install-sidecar.ps1 -SharedToken x -Uninstall
+cd sidecar; npm ci; cd ..
+.\deploy\install-sidecar.ps1 -InstanceName main -SharedToken <16+ chars>   # task RaselSidecar-main, first free port from 5301
+.\deploy\install-sidecar.ps1 -List
+.\deploy\install-sidecar.ps1 -InstanceName main -Uninstall
 ```
 
 Example `api.env`:
