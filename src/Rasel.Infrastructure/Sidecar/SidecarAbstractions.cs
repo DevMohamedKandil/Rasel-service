@@ -28,8 +28,14 @@ public interface ISidecarProbe
     Task<SidecarProbe> ProbeAsync(int port, CancellationToken ct);
 }
 
-/// <summary>Where the Bridge provider should send requests. Null while no endpoint is available (queued sends wait).</summary>
+/// <summary>Where the Bridge provider should send requests for a session. Null while that session's engine is not up (queued sends wait).</summary>
 public interface IBridgeEndpoint
 {
-    (string BaseUrl, string Token)? Current { get; }
+    (string BaseUrl, string Token)? Resolve(Guid sessionId);
+    /// <summary>Managed mode: prepares/starts the session's own engine (async; returns before it is ready). Throws AppException max_sessions_reached.</summary>
+    Task EnsureSessionAsync(Guid sessionId, CancellationToken ct) => Task.CompletedTask;
+    /// <summary>Managed mode: stops the session's engine and frees its slot; <paramref name="purge"/> also deletes its data once the process is dead.</summary>
+    Task StopSessionAsync(Guid sessionId, bool purge, CancellationToken ct) => Task.CompletedTask;
+    /// <summary>What to report while <see cref="Resolve"/> is null. Null = not managed (a missing endpoint is an error).</summary>
+    Rasel.Domain.Enums.SessionStatus? NotReadyStatus(Guid sessionId) => null;
 }

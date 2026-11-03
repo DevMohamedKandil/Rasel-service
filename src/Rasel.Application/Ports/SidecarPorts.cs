@@ -6,7 +6,7 @@ public enum SidecarState
     Disabled,
     Preparing,
     InstallingDependencies,
-    /// <summary>Prepared and waiting for Start (AutoStart=false).</summary>
+    /// <summary>Prepared and waiting for Start (AutoStart=false), or (engine level) prepared with no session yet.</summary>
     Ready,
     Starting,
     NeedsQr,
@@ -23,13 +23,19 @@ public enum SidecarState
 /// <param name="Reason">Plain-language cause and fix for Degraded/Failed. Never contains secrets or phone numbers.</param>
 public sealed record SidecarStatus(SidecarState State, string? Step = null, string? Reason = null, int Crashes = 0, bool AutoStart = true);
 
+/// <summary>One supervised engine process = one Rasel session = one WhatsApp number.</summary>
+public sealed record SidecarSessionStatus(Guid SessionId, SidecarStatus Status, int? Port);
+
 /// <summary>Result of a start/stop/restart request.</summary>
-public enum SidecarCommandResult { Accepted, AlreadyInState, NotManaged }
+public enum SidecarCommandResult { Accepted, AlreadyInState, NotManaged, SessionNotFound }
 
 public interface ISidecarControl
 {
+    /// <summary>Aggregate: the shared preparation (copy, Node, npm, Chrome) while it runs or failed, otherwise the best state across sessions.</summary>
     SidecarStatus Status { get; }
-    SidecarCommandResult RequestStart();
-    SidecarCommandResult RequestStop();
-    SidecarCommandResult RequestRestart();
+    IReadOnlyList<SidecarSessionStatus> Sessions { get; }
+    /// <summary>A null <paramref name="sessionId"/> means every session.</summary>
+    SidecarCommandResult RequestStart(Guid? sessionId);
+    SidecarCommandResult RequestStop(Guid? sessionId);
+    SidecarCommandResult RequestRestart(Guid? sessionId);
 }

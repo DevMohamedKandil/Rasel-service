@@ -50,6 +50,13 @@ public sealed class CreateSessionHandler(ISessionRepository sessions, IWhatsAppP
             await sessions.UpdateAsync(session, CancellationToken.None);
             throw;
         }
+        catch (AppException)
+        {
+            // Refused (for example max sessions reached): the row must not be re-adopted later.
+            session.UpdateStatus(SessionStatus.Stopped, clock.GetUtcNow());
+            await sessions.UpdateAsync(session, CancellationToken.None);
+            throw;
+        }
 
         await sessions.UpdateAsync(session, ct);
         return new SessionDto(session.Id, session.Name, session.Status);
@@ -88,10 +95,11 @@ public sealed class GetSessionQrHandler(ISessionRepository sessions, IWhatsAppPr
 
 public sealed class StopSessionHandler(ISessionRepository sessions, IWhatsAppProvider provider, TimeProvider clock)
 {
-    public async Task HandleAsync(Guid clientId, Guid id, CancellationToken ct)
+    /// <param name="purge">Admin only (the endpoint enforces it): also delete the session's stored WhatsApp login data.</param>
+    public async Task HandleAsync(Guid clientId, Guid id, CancellationToken ct, bool purge = false)
     {
         var session = await SessionLookup.GetOrThrowAsync(sessions, id, clientId, ct);
-        await provider.StopSessionAsync(id, ct);
+        if (purge) await provider.PurgeSessionAsync(id, ct); else await provider.StopSessionAsync(id, ct);
         session.UpdateStatus(SessionStatus.Stopped, clock.GetUtcNow());
         await sessions.UpdateAsync(session, ct);
     }

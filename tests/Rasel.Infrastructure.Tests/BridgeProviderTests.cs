@@ -44,6 +44,37 @@ public class BridgeProviderTests
         return services.BuildServiceProvider().GetRequiredService<IWhatsAppProvider>();
     }
 
+    private sealed class PerSessionEndpoint(Dictionary<Guid, (string, string)> map) : Rasel.Infrastructure.Sidecar.IBridgeEndpoint
+    {
+        public (string BaseUrl, string Token)? Resolve(Guid sessionId) => map.TryGetValue(sessionId, out var e) ? e : null;
+        public Rasel.Domain.Enums.SessionStatus? NotReadyStatus(Guid sessionId) => SessionStatus.Starting;
+    }
+
+    [Fact]
+    public async Task Managed_mode_routes_each_session_to_its_own_sidecar_and_waits_when_its_engine_is_not_up()
+    {
+        var a = Guid.NewGuid(); var b = Guid.NewGuid(); var notReady = Guid.NewGuid();
+        var hits = new List<(string Url, string? Token)>();
+        var stub = new Stub((r, _) => { lock (hits) hits.Add((r.RequestUri!.GetLeftPart(UriPartial.Authority), r.Headers.TryGetValues("X-Bridge-Token", out var v) ? v.Single() : null)); return Text(HttpStatusCode.OK, "SendDone"); });
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddOptions<WhatsAppOptions>();
+        services.AddSingleton<Rasel.Infrastructure.Sidecar.IBridgeEndpoint>(new PerSessionEndpoint(new() { [a] = ("http://127.0.0.1:5811", "ta"), [b] = ("http://127.0.0.1:5812", "tb") }));
+        services.AddBridgeProvider();
+        services.ConfigureAll<HttpClientFactoryOptions>(o => o.HttpMessageHandlerBuilderActions.Add(x => x.PrimaryHandler = stub));
+        var provider = services.BuildServiceProvider().GetRequiredService<IWhatsAppProvider>();
+
+        await provider.SendTextToGroupAsync(a, "G", "hi", Guid.NewGuid(), default);
+        await provider.SendTextToGroupAsync(b, "G", "hi", Guid.NewGuid(), default);
+        Assert.Equal([("http://127.0.0.1:5811", "ta"), ("http://127.0.0.1:5812", "tb")], hits);
+
+        Assert.Equal(SessionStatus.Starting, await provider.GetStatusAsync(notReady, default)); // reported, not thrown: POST /sessions answers at once
+        Assert.Null(await provider.GetQrAsync(notReady, default));
+        var ex = await Assert.ThrowsAsync<ProviderException>(() => provider.SendTextToGroupAsync(notReady, "G", "hi", Guid.NewGuid(), default));
+        Assert.True(ex.IsTransient && ex.IsNotReady); // the outbox keeps the message queued (see MessageSender)
+        Assert.Equal(2, hits.Count); // nothing was sent to any sidecar for the not-ready session
+    }
+
     [Fact]
     public async Task Shared_token_is_sent_as_header_only_when_configured()
     {

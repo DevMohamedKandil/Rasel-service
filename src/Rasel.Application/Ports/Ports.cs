@@ -6,9 +6,11 @@ namespace Rasel.Application.Ports;
 public sealed record GroupInfo(string Id, string Name);
 
 /// <summary>A provider failure. Transient failures (timeouts, 5xx, open circuit) are retried by the outbox; permanent ones are not.</summary>
-public sealed class ProviderException(string message, bool isTransient = false) : Exception(message)
+public sealed class ProviderException(string message, bool isTransient = false, bool isNotReady = false) : Exception(message)
 {
     public bool IsTransient { get; } = isTransient;
+    /// <summary>The session's own engine is not up yet (preparing, needs a QR, restarting). Queued messages wait for it without using up attempts (see OutboxOptions.NotReadyMaxAgeMinutes).</summary>
+    public bool IsNotReady { get; } = isNotReady;
 }
 
 public interface IWhatsAppProvider
@@ -19,6 +21,8 @@ public interface IWhatsAppProvider
     Task<SessionStatus> GetStatusAsync(Guid sessionId, CancellationToken ct);
     /// <summary>Digits of the number linked to the session (no '+'), or null when not connected / unknown. Sensitive: never log it.</summary>
     Task<string?> GetLinkedPhoneAsync(Guid sessionId, CancellationToken ct) => Task.FromResult<string?>(null);
+    /// <summary>Stops the session and deletes its stored login data (Managed mode) once the engine process is dead. Default: same as Stop.</summary>
+    Task PurgeSessionAsync(Guid sessionId, CancellationToken ct) => StopSessionAsync(sessionId, ct);
     /// <param name="messageId">Stable per message, so a real provider can de-duplicate a retried send.</param>
     Task SendTextToPhoneAsync(Guid sessionId, string phoneE164, string text, Guid messageId, CancellationToken ct);
     /// <summary>Throws <see cref="ProviderException"/> unless exactly one group has this exact name.</summary>
@@ -48,6 +52,8 @@ public interface IApiClientRepository
 public interface ISessionRepository
 {
     Task<Session?> GetAsync(Guid id, Guid clientId, CancellationToken ct);
+    /// <summary>Every session that is not stopped, oldest first (used to re-adopt sessions at startup).</summary>
+    Task<IReadOnlyList<Session>> ListActiveAsync(CancellationToken ct);
     Task<Session?> FindConnectedAsync(Guid clientId, CancellationToken ct);
     Task AddAsync(Session session, CancellationToken ct);
     Task UpdateAsync(Session session, CancellationToken ct);

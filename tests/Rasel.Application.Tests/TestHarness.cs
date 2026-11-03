@@ -41,6 +41,8 @@ public sealed class InMemoryStore : ISessionRepository, IMessageRepository, IOtp
         Task.FromResult(Sessions.FirstOrDefault(s => s.Id == id && s.ClientId == clientId));
     public Task<Session?> FindConnectedAsync(Guid clientId, CancellationToken ct) =>
         Task.FromResult(Sessions.FirstOrDefault(s => s.ClientId == clientId && s.Status == SessionStatus.Connected));
+    public Task<IReadOnlyList<Session>> ListActiveAsync(CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<Session>>(Sessions.Where(s => s.Status != SessionStatus.Stopped).ToList());
     public Task AddAsync(Session session, CancellationToken ct) { Sessions.Add(session); return Task.CompletedTask; }
     public Task UpdateAsync(Session session, CancellationToken ct) => Task.CompletedTask;
 

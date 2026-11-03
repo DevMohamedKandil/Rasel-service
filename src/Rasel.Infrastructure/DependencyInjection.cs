@@ -48,6 +48,7 @@ public static class DependencyInjection
             services.AddHostedService(sp => sp.GetRequiredService<SidecarSupervisor>());
             services.AddSingleton<ISidecarControl>(sp => sp.GetRequiredService<SidecarSupervisor>());
             services.AddSingleton<IBridgeEndpoint>(sp => new SupervisorBridgeEndpoint(sp.GetRequiredService<SidecarSupervisor>()));
+            services.AddSingleton<ISessionCatalog, DbSessionCatalog>();
             services.AddBridgeProvider();
             services.AddHealthChecks().AddCheck<SidecarHealthCheck>("sidecar", failureStatus: HealthStatus.Degraded, tags: [ReadyTag]);
         }

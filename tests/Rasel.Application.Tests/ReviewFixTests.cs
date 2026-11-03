@@ -51,6 +51,30 @@ public class ReviewFixTests
         Assert.Equal("message.failed", Assert.Single(h.Webhooks.Events).Event);
     }
 
+    private sealed class NotReadyProvider : BuggyProvider
+    {
+        public override Task SendTextToPhoneAsync(Guid sessionId, string phoneE164, string text, Guid messageId, CancellationToken ct) =>
+            throw new ProviderException("The WhatsApp engine of this session is not ready yet.", isTransient: true, isNotReady: true);
+    }
+
+    [Fact]
+    public async Task A_not_ready_session_defers_the_message_without_using_attempts_until_it_is_too_old()
+    {
+        var h = await Harness.CreateConnectedAsync();
+        await h.SendText().HandleAsync(h.Client, new SendTextCommand(null, Phone, null, "x"), default);
+        var message = h.Store.Messages.Single();
+        var sender = new MessageSender(h.Store, new NotReadyProvider(), h.Webhooks, h.Outbox, h.Pacer, h.Clock, NullLogger<MessageSender>.Instance);
+
+        for (var i = 0; i < h.Outbox.MaxAttempts + 3; i++) await sender.SendAsync(message, default);
+        Assert.Equal(MessageStatus.Queued, message.Status); // still waiting, nothing burnt
+        Assert.Equal(0, message.Attempts);
+        Assert.True(message.NextAttemptAt > h.Clock.GetUtcNow());
+
+        h.Clock.Advance(TimeSpan.FromMinutes(h.Outbox.NotReadyMaxAgeMinutes + 1)); // older than the documented limit: normal transient accounting
+        for (var i = 0; i < h.Outbox.MaxAttempts; i++) await sender.SendAsync(message, default);
+        Assert.Equal(MessageStatus.Failed, message.Status);
+    }
+
     [Fact]
     public async Task Cancellation_is_not_recorded_as_a_failed_attempt()
     {

@@ -25,9 +25,24 @@ public class SystemEndpointsTests
     public async Task Sidecar_commands_answer_409_when_not_managed_and_401_without_a_key(string action)
     {
         await using var f = new RaselFactory();
-        Assert.Equal(HttpStatusCode.Unauthorized, (await f.CreateClient().PostAsync($"/v1/system/sidecar/{action}", null)).StatusCode);
-        var response = await f.CreateAuthorizedClient().PostAsync($"/v1/system/sidecar/{action}", null);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await f.CreateClient().PostAsync($"/v1/system/sidecar/{action}?all=true", null)).StatusCode);
+        var response = await f.CreateAuthorizedClient().PostAsync($"/v1/system/sidecar/{action}?all=true", null);
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Equal("sidecar_not_managed", (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+    }
+
+    [Theory]
+    [InlineData("start")]
+    [InlineData("stop")]
+    [InlineData("restart")]
+    public async Task Sidecar_commands_require_an_explicit_target_session_or_all(string action)
+    {
+        await using var f = new RaselFactory();
+        var client = f.CreateAuthorizedClient();
+        var bare = await client.PostAsync($"/v1/system/sidecar/{action}", null);
+        Assert.Equal(HttpStatusCode.BadRequest, bare.StatusCode);
+        Assert.Equal("session_required", (await bare.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        var both = await client.PostAsync($"/v1/system/sidecar/{action}?all=true&sessionId={Guid.NewGuid()}", null);
+        Assert.Equal(HttpStatusCode.BadRequest, both.StatusCode);
     }
 }

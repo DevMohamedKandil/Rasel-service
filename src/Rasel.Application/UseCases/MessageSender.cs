@@ -28,6 +28,10 @@ public sealed class MessageSender(
                 await provider.SendTextToGroupAsync(message.SessionId, message.Destination, message.Body, message.Id, ct);
             message.MarkSent(clock.GetUtcNow());
         }
+        catch (ProviderException ex) when (ex.IsNotReady && clock.GetUtcNow() - message.CreatedAt < TimeSpan.FromMinutes(options.NotReadyMaxAgeMinutes))
+        {
+            message.Defer(PiiRedactor.Redact(ex.Message), clock.GetUtcNow(), TimeSpan.FromSeconds(options.NotReadyRetrySeconds));
+        }
         catch (ProviderException ex)
         {
             message.RecordFailure(PiiRedactor.Redact(ex.Message), ex.IsTransient, clock.GetUtcNow(),

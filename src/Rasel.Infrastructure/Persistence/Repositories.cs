@@ -87,6 +87,9 @@ public sealed class SessionRepository(RaselDbContext db) : ISessionRepository
     }
 
     public Task UpdateAsync(Session session, CancellationToken ct) => db.SaveChangesAsync(ct);
+
+    public async Task<IReadOnlyList<Session>> ListActiveAsync(CancellationToken ct) =>
+        (await db.Sessions.Where(s => s.Status != SessionStatus.Stopped).ToListAsync(ct)).OrderBy(s => s.CreatedAt).ToList(); // SQLite cannot order by DateTimeOffset in SQL
 }
 
 public sealed class MessageRepository(RaselDbContext db) : IMessageRepository

@@ -7,7 +7,7 @@ using Microsoft.Extensions.Options;
 namespace Rasel.Infrastructure.Sidecar;
 
 /// <summary>File-system side of the supervisor: data folders, bundled-source copy, dependency hash, token, free port, single-instance lock.</summary>
-public sealed partial class SidecarFiles(IOptions<SidecarOptions> options)
+public partial class SidecarFiles(IOptions<SidecarOptions> options)
 {
     public static string NpmExecutable => Resolve(OperatingSystem.IsWindows() ? "npm.cmd" : "npm");
     public static string NpxExecutable => Resolve(OperatingSystem.IsWindows() ? "npx.cmd" : "npx");
@@ -38,11 +38,13 @@ public sealed partial class SidecarFiles(IOptions<SidecarOptions> options)
     };
 
     public string AppDir => Path.Combine(Root, "app");
-    public string SessionDir => Path.Combine(Root, "session");
+    private string SessionsRoot => Path.Combine(Root, "sessions");
+    /// <summary>SESSION_DIR of one engine: holds that number's WhatsApp login, its token and its lock. Kept when the session is stopped.</summary>
+    public string SessionDir(Guid id) => Path.Combine(SessionsRoot, id.ToString("D"));
     private string LogDir => Path.Combine(Root, "logs");
-    public string SidecarLogPath => Path.Combine(LogDir, "sidecar.log");
+    public string SidecarLogPath(Guid id) => Path.Combine(LogDir, $"sidecar-{id:N}.log");
     public string InstallLogPath => Path.Combine(LogDir, "install.log");
-    private string TokenPath => Path.Combine(Root, "shared-token");
+    private string TokenPath(Guid id) => Path.Combine(SessionDir(id), "shared-token");
     private string HashPath => Path.Combine(Root, "deps.sha256");
 
     /// <summary>Creates the folders and copies the bundled sources (never node_modules or the session). Returns an error text, or null.</summary>
@@ -52,14 +54,13 @@ public sealed partial class SidecarFiles(IOptions<SidecarOptions> options)
         {
             Directory.CreateDirectory(Root);
             Directory.CreateDirectory(AppDir);
-            Directory.CreateDirectory(SessionDir);
+            Directory.CreateDirectory(SessionsRoot);
             Directory.CreateDirectory(LogDir);
             Restrict(Root);
             if (!Directory.Exists(Source) || !File.Exists(Path.Combine(Source, "package.json")))
                 return $"The bundled WhatsApp engine files were not found (looked in '{Source}'). Reinstall Rasel or set Sidecar:SourceDir.";
             CopyTree(Source, AppDir);
-            foreach (var log in new[] { SidecarLogPath, InstallLogPath })
-                if (File.Exists(log) && new FileInfo(log).Length > 5_000_000) File.Move(log, log + ".old", true);
+            if (File.Exists(InstallLogPath) && new FileInfo(InstallLogPath).Length > 5_000_000) File.Move(InstallLogPath, InstallLogPath + ".old", true);
             return null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -89,16 +90,19 @@ public sealed partial class SidecarFiles(IOptions<SidecarOptions> options)
 
     public void MarkInstalled() => File.WriteAllText(HashPath, LockHash());
 
-    /// <summary>A random shared secret per install, persisted with owner-only access.</summary>
-    public string GetOrCreateToken()
+    /// <summary>A random shared secret per session, persisted with owner-only access.</summary>
+    public string GetOrCreateToken(Guid id)
     {
-        if (File.Exists(TokenPath) && File.ReadAllText(TokenPath).Trim() is { Length: >= 32 } existing) return existing;
+        Directory.CreateDirectory(SessionDir(id));
+        var path = TokenPath(id);
+        if (File.Exists(path) && File.ReadAllText(path).Trim() is { Length: >= 32 } existing) return existing;
         var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
-        File.WriteAllText(TokenPath, token);
-        Restrict(TokenPath);
+        File.WriteAllText(path, token);
+        Restrict(path);
         return token;
     }
 
+    /// <summary>An OS-chosen free loopback port (used when no port range is configured).</summary>
     public int FreePort()
     {
         var l = new TcpListener(IPAddress.Loopback, 0);
@@ -107,12 +111,41 @@ public sealed partial class SidecarFiles(IOptions<SidecarOptions> options)
         finally { l.Stop(); }
     }
 
-    public bool TryAcquireLock(out FileStream? stream)
+    /// <summary>True when nothing is listening on (and nothing prevents binding) the loopback port right now.</summary>
+    public virtual bool IsPortFree(int port)
     {
         try
         {
-            Directory.CreateDirectory(Root);
-            stream = new FileStream(Path.Combine(Root, "supervisor.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            var l = new TcpListener(IPAddress.Loopback, port);
+            l.Start();
+            l.Stop();
+            return true;
+        }
+        catch (SocketException) { return false; }
+    }
+
+    /// <summary>Deletes the session folder (login data, token, lock). Returns false when it could not be removed completely.</summary>
+    public bool DeleteSessionData(Guid id)
+    {
+        try { if (Directory.Exists(SessionDir(id))) Directory.Delete(SessionDir(id), true); return true; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return false; }
+    }
+
+    /// <summary>One exclusive lock per Rasel installation (the data folder) and one per session folder.</summary>
+    public bool TryAcquireLock(out FileStream? stream) => TryLock(Path.Combine(Root, "supervisor.lock"), out stream);
+
+    public bool TryAcquireSessionLock(Guid id, out FileStream? stream)
+    {
+        Directory.CreateDirectory(SessionDir(id));
+        return TryLock(Path.Combine(SessionDir(id), "session.lock"), out stream);
+    }
+
+    private bool TryLock(string path, out FileStream? stream)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
             return true;
         }
         catch (IOException) { stream = null; return false; }

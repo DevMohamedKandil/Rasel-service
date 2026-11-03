@@ -25,23 +25,33 @@ namespace Rasel.Infrastructure.Providers.Bridge;
 public sealed class BridgeWhatsAppProvider(HttpClient http, Rasel.Infrastructure.Sidecar.IBridgeEndpoint endpoint) : IWhatsAppProvider
 {
     /// <summary>Managed mode: no endpoint until the supervised sidecar answers. That is a transient failure, so queued sends wait instead of failing.</summary>
-    private (string BaseUrl, string Token) Endpoint => endpoint.Current ?? throw new ProviderException("The WhatsApp engine is not ready yet.", isTransient: true);
+    private (string BaseUrl, string Token) EndpointFor(Guid sessionId) =>
+        endpoint.Resolve(sessionId) ?? throw new ProviderException("The WhatsApp engine of this session is not ready yet.", isTransient: true, isNotReady: true);
 
-    public async Task CreateSessionAsync(Guid sessionId, CancellationToken ct) => await ProbeQrAsync(ct); // the bridge must at least be alive
+    public async Task CreateSessionAsync(Guid sessionId, CancellationToken ct)
+    {
+        await endpoint.EnsureSessionAsync(sessionId, ct); // Managed: starts this session's own engine and returns at once
+        if (endpoint.Resolve(sessionId) is not null) await ProbeQrAsync(sessionId, ct); // the bridge must at least be alive
+    }
 
-    public Task StopSessionAsync(Guid sessionId, CancellationToken ct) => Task.CompletedTask; // never stops the shared bridge
+    /// <summary>Managed: stops only this session's engine (data kept). External bridge: no-op, the shared bridge is never stopped.</summary>
+    public Task StopSessionAsync(Guid sessionId, CancellationToken ct) => endpoint.StopSessionAsync(sessionId, purge: false, ct);
+
+    public Task PurgeSessionAsync(Guid sessionId, CancellationToken ct) => endpoint.StopSessionAsync(sessionId, purge: true, ct);
 
     public async Task<string?> GetQrAsync(Guid sessionId, CancellationToken ct)
     {
-        var qr = await ProbeQrAsync(ct);
+        if (endpoint.Resolve(sessionId) is null && endpoint.NotReadyStatus(sessionId) is not null) return null;
+        var qr = await ProbeQrAsync(sessionId, ct);
         // /Qr keeps serving the last QR even after login, so only expose it while the client is not ready.
         return await GetStatusAsync(sessionId, ct) == SessionStatus.Connected || string.IsNullOrWhiteSpace(qr) ? null : qr;
     }
 
     public async Task<SessionStatus> GetStatusAsync(Guid sessionId, CancellationToken ct)
     {
-        var qr = await ProbeQrAsync(ct);
-        using var response = await SendAsync(HttpMethod.Post, "/doSendPersonalizedTextToGroup", new { groupName = "", message = "" }, ct, throwOnError: false);
+        if (endpoint.Resolve(sessionId) is null && endpoint.NotReadyStatus(sessionId) is { } notReady) return notReady; // Managed: engine still starting / stopped / failed
+        var qr = await ProbeQrAsync(sessionId, ct);
+        using var response = await SendAsync(sessionId, HttpMethod.Post, "/doSendPersonalizedTextToGroup", new { groupName = "", message = "" }, ct, throwOnError: false);
         return response.StatusCode switch
         {
             HttpStatusCode.BadRequest => SessionStatus.Connected, // validation ran, so the client is ready; nothing was sent
@@ -53,7 +63,8 @@ public sealed class BridgeWhatsAppProvider(HttpClient http, Rasel.Infrastructure
     /// <summary>GET /info on the Rasel sidecar. The legacy WPService has no such route (404) and then this is simply null.</summary>
     public async Task<string?> GetLinkedPhoneAsync(Guid sessionId, CancellationToken ct)
     {
-        using var response = await SendAsync(HttpMethod.Get, "/info", null, ct, throwOnError: false);
+        if (endpoint.Resolve(sessionId) is null) return null;
+        using var response = await SendAsync(sessionId, HttpMethod.Get, "/info", null, ct, throwOnError: false);
         if (!response.IsSuccessStatusCode) return null;
         try
         {
@@ -68,26 +79,26 @@ public sealed class BridgeWhatsAppProvider(HttpClient http, Rasel.Infrastructure
     {
         var digits = phoneE164.TrimStart('+');
         var path = $"/sendMessage?phone={Uri.EscapeDataString(digits)}&message={Uri.EscapeDataString(text)}";
-        using var _ = await SendAsync(HttpMethod.Get, path, null, ct);
+        using var _ = await SendAsync(sessionId, HttpMethod.Get, path, null, ct);
     }
 
     public async Task SendTextToGroupAsync(Guid sessionId, string groupName, string text, Guid messageId, CancellationToken ct)
     {
-        using var _ = await SendAsync(HttpMethod.Post, "/doSendPersonalizedTextToGroup", new { groupName, message = text }, ct);
+        using var _ = await SendAsync(sessionId, HttpMethod.Post, "/doSendPersonalizedTextToGroup", new { groupName, message = text }, ct);
     }
 
     public Task<IReadOnlyList<GroupInfo>> FindGroupsByNameAsync(Guid sessionId, string exactName, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<GroupInfo>>([new GroupInfo(exactName, exactName)]);
 
-    private async Task<string> ProbeQrAsync(CancellationToken ct)
+    private async Task<string> ProbeQrAsync(Guid sessionId, CancellationToken ct)
     {
-        using var response = await SendAsync(HttpMethod.Get, "/Qr", null, ct);
+        using var response = await SendAsync(sessionId, HttpMethod.Get, "/Qr", null, ct);
         return await response.Content.ReadAsStringAsync(ct);
     }
 
-    private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, object? body, CancellationToken ct, bool throwOnError = true)
+    private async Task<HttpResponseMessage> SendAsync(Guid sessionId, HttpMethod method, string path, object? body, CancellationToken ct, bool throwOnError = true)
     {
-        var (baseUrl, token) = Endpoint;
+        var (baseUrl, token) = EndpointFor(sessionId);
         using var request = new HttpRequestMessage(method, baseUrl.TrimEnd('/') + path);
         if (body is not null) request.Content = JsonContent.Create(body);
         if (token.Length > 0) request.Headers.Add("X-Bridge-Token", token);

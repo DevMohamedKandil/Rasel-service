@@ -14,6 +14,11 @@ public sealed class OutboxOptions
     public int LeaseSeconds { get; set; } = 120;
     public int BatchSize { get; set; } = 10;
 
+    /// <summary>Managed mode: a message for a session whose engine is not ready (preparing, needs QR, restarting) is re-queued after this delay WITHOUT counting an attempt.</summary>
+    public int NotReadyRetrySeconds { get; set; } = 15;
+    /// <summary>... but only while the message is younger than this; older ones fail as a normal transient failure so the queue cannot grow forever.</summary>
+    public int NotReadyMaxAgeMinutes { get; set; } = 60;
+
     public TimeSpan BackoffFor(int attemptNumber)
     {
         var seconds = Math.Min((double)MaxBackoffSeconds, BaseBackoffSeconds * Math.Pow(2, Math.Max(0, attemptNumber - 1)));

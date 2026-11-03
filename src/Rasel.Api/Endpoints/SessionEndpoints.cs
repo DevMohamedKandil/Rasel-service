@@ -29,9 +29,9 @@ public static class SessionEndpoints
             return Results.Ok(dto);
         }).RequireStandard();
 
-        group.MapDelete("/{id:guid}", async (Guid id, HttpContext http, StopSessionHandler handler, CancellationToken ct) =>
+        group.MapDelete("/{id:guid}", async (Guid id, bool? purge, HttpContext http, StopSessionHandler handler, CancellationToken ct) =>
         {
-            await handler.HandleAsync(http.GetClient().Id, id, ct);
+            await handler.HandleAsync(http.GetClient().Id, id, ct, purge == true);
             return Results.NoContent();
         }).RequireAdmin(); // stopping a session disconnects the WhatsApp number: Admin only
     }

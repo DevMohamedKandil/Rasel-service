@@ -87,6 +87,15 @@ public class Message
         Version++;
     }
 
+    /// <summary>The session is not ready: wait and try again later without using up an attempt.</summary>
+    public void Defer(string reason, DateTimeOffset now, TimeSpan delay)
+    {
+        Error = reason;
+        NextAttemptAt = now + delay;
+        LeasedUntil = null;
+        Version++;
+    }
+
     private void Finish()
     {
         Body = null;
