@@ -1,0 +1,51 @@
+# docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d --build
+name: rasel
+services:
+  api:
+    build: { context: .., dockerfile: deploy/Dockerfile.api }
+    restart: unless-stopped
+    ports: ["${RASEL_PORT:-8080}:8080"]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Database__Path: /data/rasel.db
+      Security__OtpPepper: ${SECURITY_OTP_PEPPER:?set SECURITY_OTP_PEPPER}
+      Security__TokenSecret: ${SECURITY_TOKEN_SECRET:?set SECURITY_TOKEN_SECRET}
+      Seed__DevApiKey: ${SEED_API_KEY:?set SEED_API_KEY}
+      WhatsApp__Provider: ${WHATSAPP_PROVIDER:-Fake}
+      WhatsApp__Bridge__BaseUrl: http://sidecar:5001
+      WhatsApp__Bridge__SharedToken: ${BRIDGE_SHARED_TOKEN:?set BRIDGE_SHARED_TOKEN}
+      Cors__AllowedOrigins__0: ${CORS_ORIGIN:-}
+      Webhooks__Enabled: ${WEBHOOKS_ENABLED:-false}
+      Webhooks__Url: ${WEBHOOKS_URL:-}
+      Webhooks__Secret: ${WEBHOOKS_SECRET:-}
+    volumes: ["rasel-data:/data"]
+    depends_on:
+      sidecar: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080 && printf \"GET /health/ready HTTP/1.0\r\nHost: x\r\n\r\n\" >&3 && head -n1 <&3 | grep -q \" 200 \"'"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  sidecar:
+    build: { context: .., dockerfile: deploy/Dockerfile.sidecar }
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: "5001"
+      SESSION_DIR: /session
+      SHARED_TOKEN: ${BRIDGE_SHARED_TOKEN:?set BRIDGE_SHARED_TOKEN}
+    volumes: ["rasel-session:/session"]   # the logged-in WhatsApp account: back up, protect, never publish
+    expose: ["5001"]                      # internal network only; not published on the host
+    shm_size: "1gb"                       # Chromium needs more than the 64MB default
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5001/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  rasel-data:
+  rasel-session:

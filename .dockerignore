@@ -1,0 +1,9 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/.wwebjs_auth/
+**/sessions/
+*.db*
+admin/dist/
+admin/.angular/
+.git/

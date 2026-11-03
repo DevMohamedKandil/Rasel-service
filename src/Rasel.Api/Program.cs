@@ -10,13 +10,14 @@ using Rasel.Application;
 using Rasel.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseWindowsService(); // no-op when not run by the Service Control Manager; sets the content root to the exe folder when it is
 var config = builder.Configuration;
 
 builder.Services.AddOptions<ApiOptions>().Bind(config.GetSection("Api")).ValidateOnStart();
 builder.Services.AddSingleton<IValidateOptions<ApiOptions>, ApiOptionsValidator>();
 builder.Services.AddOptions<CorsOptions>().Bind(config.GetSection("Cors")).ValidateOnStart();
 builder.Services.AddSingleton<IValidateOptions<CorsOptions>, CorsOptionsValidator>();
-var corsOrigins = config.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+var corsOrigins = (config.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? []).Where(o => !string.IsNullOrWhiteSpace(o)).ToArray();
 if (corsOrigins.Length > 0)
     builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.WithOrigins(corsOrigins).WithHeaders(ApiKeyDefaults.HeaderName, "Content-Type", "Idempotency-Key").WithMethods("GET", "POST", "DELETE")));
 builder.Services.AddRaselApplication(config);

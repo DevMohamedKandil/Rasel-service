@@ -1,0 +1,20 @@
+# Build context: repository root.  docker build -f deploy/Dockerfile.api -t rasel-api .
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+COPY Directory.Build.props Rasel.sln ./
+COPY src ./src
+RUN dotnet publish src/Rasel.Api/Rasel.Api.csproj -c Release -o /app --no-self-contained
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
+WORKDIR /app
+COPY --from=build /app .
+ENV ASPNETCORE_URLS=http://+:8080 \
+    ASPNETCORE_ENVIRONMENT=Production \
+    Database__Path=/data/rasel.db
+RUN mkdir -p /data && chown -R $APP_UID /data
+VOLUME /data
+USER $APP_UID
+EXPOSE 8080
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
+  CMD bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080 && printf "GET /health/live HTTP/1.0\r\nHost: x\r\n\r\n" >&3 && head -n1 <&3 | grep -q " 200 "'
+ENTRYPOINT ["dotnet", "Rasel.Api.dll"]
