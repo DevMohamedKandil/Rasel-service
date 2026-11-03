@@ -1,6 +1,6 @@
 # راسل: الحالة الحالية وخطة التطوير
 
-> بدعم من Kandil Smart Digital Solution
+> Powered by Kandil Smart Digital Solution
 
 مكتوب لصاحب المشروع بلغة بسيطة. كل بند فيه حالة تحقق صادقة:
 **تحقق حي** = اتجرب فعليًا على تشغيل حقيقي، **اختبار آلي فقط** = الكود مغطى باختبارات لكن ما اتجرّبش على واتساب حقيقي، **لم يُختبر** = مكتوب ولم يُشغَّل.
@@ -102,4 +102,4 @@ dotnet test Rasel.sln; (cd admin; npm test); (cd sidecar; npm test)
 * خطوات الاختبار الحي مع واتساب الحقيقي في [TEST-CHECKLIST.ar.md](TEST-CHECKLIST.ar.md) (ما زالت غير مُعلَّمة).
 
 ---
-_بدعم من Kandil Smart Digital Solution_
+_Powered by Kandil Smart Digital Solution_

@@ -275,7 +275,7 @@ const D: Record<string, { ar: string; en: string }> = {
   'toast.5xx': { ar: 'الخدمة تواجه مشكلة مؤقتة، حاول لاحقاً.', en: 'The service has a temporary problem, try again later.' },
   'toast.generic': { ar: 'تعذر إكمال الطلب.', en: 'The request could not be completed.' },
   'toast.dismiss': { ar: 'إخفاء', en: 'Dismiss' },
-  'app.powered': { ar: 'بدعم من Kandil Smart Digital Solution', en: 'Powered by Kandil Smart Digital Solution' },
+  'app.powered': { ar: 'Powered by Kandil Smart Digital Solution', en: 'Powered by Kandil Smart Digital Solution' },
   'app.version': { ar: 'راسل - الإصدار 1', en: 'Rasel v1' },
   'login.basePh': { ar: 'مثال: http://localhost:5114', en: 'e.g. http://localhost:5114' },
 

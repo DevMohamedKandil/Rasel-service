@@ -246,4 +246,4 @@ POST /v1/otp/verify
 </div>
 
 ---
-_بدعم من Kandil Smart Digital Solution_
+_Powered by Kandil Smart Digital Solution_
