@@ -2,13 +2,14 @@
 
 A standalone, reusable WhatsApp messaging and OTP gateway. Other projects integrate with it over REST using an API key.
 
-> **WhatsApp is FAKE by default.** `WhatsApp:Provider=Fake` keeps everything in memory: no real message is ever sent. A fake session shows a fake QR and becomes `Connected` the first time its QR is fetched. Real providers: `Bridge` (adapter for the existing whatsapp-web.js bridge, proven with one real group send, see ARCHITECTURE.md) and `WebJs` (invented sidecar contract, stub-tested only).
+> **WhatsApp is FAKE by default.** `WhatsApp:Provider=Fake` keeps everything in memory: no real message is ever sent. A fake session shows a fake QR and becomes `Connected` the first time its QR is fetched. Real providers: `Bridge` (adapter for the bundled `sidecar/` whatsapp-web.js bridge; proven with one real group send against the original bridge, see ARCHITECTURE.md) and `WebJs` (invented sidecar contract, stub-tested only).
 
 ## Architecture
 
 ```mermaid
 flowchart LR
     Client[Calling project] -->|X-Api-Key| API
+    Admin["admin/<br/>Angular UI, key in memory"] -->|X-Api-Key, CORS allow-list| API
     subgraph Rasel
         API["Rasel.Api<br/>auth, rate limits, ProblemDetails, health"] --> APP["Rasel.Application<br/>use cases + ports"]
         APP --> DOM["Rasel.Domain<br/>entities, state rules"]
@@ -19,9 +20,27 @@ flowchart LR
         W --> PROV{{IWhatsAppProvider}}
     end
     PROV -->|Fake default| FAKE[In-memory fake]
-    PROV -->|WebJs| SIDECAR["whatsapp-web.js sidecar<br/>HTTP + retry/timeout/breaker"]
+    PROV -->|Bridge, X-Bridge-Token| SIDECAR["sidecar/<br/>whatsapp-web.js + Chromium<br/>session volume"]
+    PROV -->|WebJs, invented contract| WEBJS[stub-tested only]
+    SIDECAR --> WA[(WhatsApp)]
     W -->|signed webhook| Client
+    DEPLOY["deploy/<br/>Docker compose, Windows scripts"] -.runs.-> API
+    DEPLOY -.runs.-> SIDECAR
 ```
+
+Folders: `src/` API (.NET), `sidecar/` WhatsApp bridge (Node), `admin/` admin UI (Angular), `deploy/` Docker and Windows installers, `docs/`.
+
+## Quickstart (5 commands)
+
+```bash
+cp deploy/.env.example deploy/.env                      # 1. fill SECURITY_*, SEED_API_KEY, BRIDGE_SHARED_TOKEN
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d --build   # 2. API + sidecar
+curl http://localhost:8080/health/ready                 # 3. healthy?
+curl -H "X-Api-Key: $SEED_API_KEY" -H "Content-Type: application/json" -d '{"name":"main"}' http://localhost:8080/v1/sessions   # 4. create a session
+cd admin && npm install --legacy-peer-deps && npm start # 5. admin UI on :4200 (set CORS_ORIGIN=http://localhost:4200)
+```
+
+Without Docker: `dotnet run --project src/Rasel.Api` (Fake provider). Windows services: [deploy/README.md](deploy/README.md). Sidecar: [sidecar/README.md](sidecar/README.md). Admin: [admin/README.md](admin/README.md).
 
 Dependency rule: `Domain <- Application <- Infrastructure`, `Api` composes both. Details and decisions: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). OTP threat model: [docs/SECURITY.md](docs/SECURITY.md). Audit of the original prototype: [docs/AUDIT.md](docs/AUDIT.md).
 
@@ -75,7 +94,9 @@ Every setting lives in `src/Rasel.Api/appsettings.json` and can be overridden wi
 | `Outbox:BaseBackoffSeconds` / `Outbox:MaxBackoffSeconds` | 5 / 900 | Exponential retry backoff |
 | `Outbox:LeaseSeconds` / `Outbox:BatchSize` | 120 / 10 | Claim lease (crash recovery) and batch size |
 | `WhatsApp:Provider` | `Fake` | `Fake`, `Bridge` or `WebJs` |
-| `WhatsApp:Bridge:BaseUrl` | empty | Real bridge address, e.g. `http://127.0.0.1:5001` (required for `Bridge`; plain http only on loopback, the bridge has no auth) |
+| `WhatsApp:Bridge:BaseUrl` | empty | Sidecar address, e.g. `http://127.0.0.1:5001` (required for `Bridge`; plain http only on loopback, or with a SharedToken) |
+| `WhatsApp:Bridge:SharedToken` | empty | Sent as `X-Bridge-Token`; the sidecar's `SHARED_TOKEN`. 16+ chars, required for plain http to a non-loopback host |
+| `Cors:AllowedOrigins` | `[]` | Explicit origins allowed to call the API from a browser (admin UI). Empty = CORS off; `*` is rejected |
 | `WhatsApp:Bridge:AttemptTimeoutSeconds` / `ReadRetries` / `Breaker*` | 30 / 2 / as WebJs | Same resilience knobs as WebJs |
 | `WhatsApp:WebJs:BaseUrl` / `ApiToken` | empty | Sidecar address and bearer token (required for `WebJs`) |
 | `WhatsApp:WebJs:AttemptTimeoutSeconds` | 10 | Per-attempt HTTP timeout |
