@@ -127,7 +127,8 @@ public sealed class BridgeWhatsAppProvider(HttpClient http, Rasel.Infrastructure
             HttpStatusCode.BadRequest => " (rejected as invalid)",
             _ => "",
         };
-        throw new ProviderException($"WhatsApp bridge returned {(int)status}{meaning}{(detail is null ? "" : ": " + detail)}", transient);
+        // 503 = the engine is up but its WhatsApp client is not ready (needs QR / loading): queued messages wait without using up attempts.
+        throw new ProviderException($"WhatsApp bridge returned {(int)status}{meaning}{(detail is null ? "" : ": " + detail)}", transient, isNotReady: status == HttpStatusCode.ServiceUnavailable);
     }
 
     private static async Task<string?> ReadTextAsync(HttpResponseMessage response, CancellationToken ct)

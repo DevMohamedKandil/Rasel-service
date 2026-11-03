@@ -102,6 +102,15 @@ The new card shows its **state** (1) and a **Show QR code** button (2).
 
 > **Not verified on real WhatsApp.** In the Fake provider a session becomes Connected the first time its QR is opened. With a real bridge it becomes Connected only after you scan the code.
 
+### Linking several numbers (multi-number)
+When Rasel runs the WhatsApp engine itself (Managed mode), every session is its own number with its own engine. Create one session per number, open each session's QR and scan it with that phone: the two QR codes are different. The status page shows one line per session. Things to know:
+
+* An administrator sets how many numbers one server may run (`Sidecar:MaxSessions`, default 5). Every number uses roughly 300-600 MB of memory, so more numbers need a bigger server. Creating one more than the limit is refused with `max_sessions_reached`.
+* When you send, pick the number with `sessionId`; without it Rasel uses the first connected number. A number that is still starting or waiting for its QR keeps its messages waiting (they are not lost and not marked failed) for up to an hour.
+* If one number has a problem, the others keep working.
+* After Rasel restarts, all numbers come back by themselves without scanning again.
+* Deleting a session stops only that number and keeps its login on disk. An administrator can delete with `?purge=true` to remove the login completely (the phone is unlinked and a new QR is needed).
+
 ## 5. Sending a message and checking its status
 
 Messages are sent by your application through the API (the console never shows or sends message text):
