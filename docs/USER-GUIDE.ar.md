@@ -244,3 +244,6 @@ POST /v1/otp/verify
 | التباعد (Pacing) | فاصل بين الرسائل لتفادي الحظر. |
 
 </div>
+
+---
+_بدعم من Kandil Smart Digital Solution_

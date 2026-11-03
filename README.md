@@ -1,5 +1,7 @@
 # Rasel
 
+> Powered by Kandil Smart Digital Solution
+
 A standalone, reusable WhatsApp messaging and OTP gateway. Other projects integrate with it over REST using an API key.
 
 > **WhatsApp is FAKE by default.** `WhatsApp:Provider=Fake` keeps everything in memory: no real message is ever sent. A fake session shows a fake QR and becomes `Connected` the first time its QR is fetched. Real providers: `Bridge` (adapter for the bundled `sidecar/` whatsapp-web.js bridge; proven with one real group send against the original bridge, see ARCHITECTURE.md) and `WebJs` (invented sidecar contract, stub-tested only).
@@ -170,3 +172,6 @@ dotnet test            # Domain, Application (in-memory), Infrastructure (real S
 ```
 
 Adding a migration: `dotnet ef migrations add <Name> -p src/Rasel.Infrastructure -s src/Rasel.Infrastructure -o Persistence/Migrations`. A test fails if the model and the migrations drift apart.
+
+---
+_Powered by Kandil Smart Digital Solution_

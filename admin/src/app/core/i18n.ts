@@ -24,7 +24,8 @@ const D: Record<string, { ar: string; en: string }> = {
   'snd.chars': { ar: 'حرف', en: 'characters' },
   'snd.hint.session': { ar: 'الرقم الذي ستخرج منه الرسالة. لا يمكن اختيار إلا الجلسات المتصلة. «تلقائي» يترك الخدمة تختار أول جلسة متصلة.', en: 'The number the message goes out from. Only connected sessions can be chosen. Automatic lets the service pick the first connected session.' },
   'snd.hint.type': { ar: 'رقم هاتف لمحادثة فردية، أو اسم مجموعة موجودة على هذا الرقم.', en: 'A phone number for a one-to-one chat, or the name of a group that exists on this number.' },
-  'snd.hint.phone': { ar: 'بالصيغة الدولية، يبدأ بـ + أو 00 ثم رمز الدولة، مثل +201001234567.', en: 'International format starting with + or 00 and the country code, e.g. +201001234567.' },
+  'snd.hint.phone': { ar: 'لازم كود الدولة مع الرقم. يبدأ بـ + أو 00 ثم كود الدولة ثم الرقم من غير صفر البداية. مصر: +20 ثم 10xxxxxxxx، يعني +201001234567 وليس 01001234567. السعودية: +966.', en: 'The country code is required. Start with + or 00, then the country code, then the number without its leading 0. Egypt: +20 then 10xxxxxxxx, i.e. +201001234567, not 01001234567. Saudi Arabia: +966.' },
+  'snd.phoneNote': { ar: 'اكتب الرقم مع كود الدولة، مثل +201001234567 (من غير الصفر الأول).', en: 'Enter the number with its country code, e.g. +201001234567 (without the leading 0).' },
   'snd.hint.group': { ar: 'الاسم مطابق تماماً (حتى 128 حرفاً). يفشل الإرسال إذا لم توجد مجموعة بهذا الاسم أو وُجد أكثر من واحدة.', en: 'The exact name (up to 128 characters). Sending fails if no group has this name or more than one does.' },
   'snd.hint.text': { ar: 'حتى 4096 حرفاً. لا يُحفظ النص في هذه الصفحة بعد الإرسال.', en: 'Up to 4096 characters. The text is not kept on this page after sending.' },
   'snd.accepted': { ar: 'تم قبول الرسالة في الطابور', en: 'Message accepted into the queue' },
@@ -274,6 +275,7 @@ const D: Record<string, { ar: string; en: string }> = {
   'toast.5xx': { ar: 'الخدمة تواجه مشكلة مؤقتة، حاول لاحقاً.', en: 'The service has a temporary problem, try again later.' },
   'toast.generic': { ar: 'تعذر إكمال الطلب.', en: 'The request could not be completed.' },
   'toast.dismiss': { ar: 'إخفاء', en: 'Dismiss' },
+  'app.powered': { ar: 'بدعم من Kandil Smart Digital Solution', en: 'Powered by Kandil Smart Digital Solution' },
   'app.version': { ar: 'راسل - الإصدار 1', en: 'Rasel v1' },
   'login.basePh': { ar: 'مثال: http://localhost:5114', en: 'e.g. http://localhost:5114' },
 

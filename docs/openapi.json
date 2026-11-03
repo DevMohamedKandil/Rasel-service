@@ -2,7 +2,7 @@
   "openapi": "3.0.4",
   "info": {
     "title": "Rasel",
-    "description": "WhatsApp messaging and OTP gateway.",
+    "description": "WhatsApp messaging and OTP gateway. Powered by Kandil Smart Digital Solution.",
     "version": "v1"
   },
   "paths": {

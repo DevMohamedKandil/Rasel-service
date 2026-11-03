@@ -60,6 +60,7 @@ interface Current { id: string; replayed: boolean; status: string; attempts: num
             <label for="srecip">{{ i18n.t(kind === 'phone' ? 'snd.recipPhone' : 'snd.recipGroup') }} <app-hint [key]="kind === 'phone' ? 'snd.hint.phone' : 'snd.hint.group'" /></label>
             <input id="srecip" class="input" [class.ltr]="kind === 'phone'" name="recipient" [(ngModel)]="recipient" autocomplete="off" required
               [attr.maxlength]="kind === 'group' ? 128 : null" [placeholder]="kind === 'phone' ? '+201001234567' : ''" data-testid="send-recipient" />
+            @if (kind === 'phone') { <small>{{ i18n.t('snd.phoneNote') }}</small> }
           </div>
           <div class="field">
             <label for="stext">{{ i18n.t('snd.text') }} <app-hint key="snd.hint.text" /></label>

@@ -276,3 +276,5 @@ details.faq p { color: var(--c-muted); padding-bottom: var(--s-3); font-size: va
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
 }
+
+.powered { text-align: center; padding: var(--s-3) var(--s-4); color: var(--c-faint); font-size: var(--t-xs); unicode-bidi: plaintext; }

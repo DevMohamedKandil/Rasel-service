@@ -44,6 +44,7 @@ import { Icon } from './ui/icon';
     } @else {
       <main id="main" tabindex="-1"><router-outlet /></main>
     }
+    <footer class="powered">{{ i18n.t('app.powered') }}</footer>
     <div class="toasts" aria-live="polite">
       @for (t of toast.items(); track t.id) {
         <div class="toast" [class.success]="t.kind === 'success'" [attr.role]="t.kind === 'error' ? 'alert' : 'status'">

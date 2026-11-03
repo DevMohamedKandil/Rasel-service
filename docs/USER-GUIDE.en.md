@@ -240,3 +240,6 @@ WhatsApp can block numbers that behave like spam. Rasel lowers the risk; it cann
 | OTP | One-time verification code. |
 | Duplicate protection (idempotency) | A key that stops the same message being sent twice. |
 | Pacing | Pause between messages to avoid bans. |
+
+---
+_Powered by Kandil Smart Digital Solution_

@@ -46,7 +46,7 @@ if (builder.Environment.IsDevelopment())
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(o =>
     {
-        o.SwaggerDoc(ApiVersions.V1, new OpenApiInfo { Title = "Rasel", Version = ApiVersions.V1, Description = "WhatsApp messaging and OTP gateway." });
+        o.SwaggerDoc(ApiVersions.V1, new OpenApiInfo { Title = "Rasel", Version = ApiVersions.V1, Description = "WhatsApp messaging and OTP gateway. Powered by Kandil Smart Digital Solution." });
         o.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme { Type = SecuritySchemeType.ApiKey, Name = ApiKeyDefaults.HeaderName, In = ParameterLocation.Header });
         o.AddSecurityRequirement(doc => new OpenApiSecurityRequirement { [new OpenApiSecuritySchemeReference("ApiKey", doc)] = [] });
     });
