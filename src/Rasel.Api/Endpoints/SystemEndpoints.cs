@@ -8,8 +8,9 @@ using Rasel.Infrastructure.Configuration;
 namespace Rasel.Api.Endpoints;
 
 /// <param name="Sidecar">Aggregate state (shared preparation, or the best state across sessions).</param>
+/// <param name="Scope">Scope of the calling key (Standard or Admin), so a UI can show or disable admin-only controls. The server enforces it either way.</param>
 /// <param name="Sessions">One entry per supervised session (Managed mode). Admin keys only; empty for Standard keys.</param>
-public sealed record SystemStatusDto(string Provider, SidecarStateDto Sidecar, IReadOnlyList<SessionEngineDto> Sessions);
+public sealed record SystemStatusDto(string Provider, SidecarStateDto Sidecar, IReadOnlyList<SessionEngineDto> Sessions, string Scope = "Admin");
 
 public sealed record SidecarStateDto(SidecarState State, string? Step, string? Reason, int Crashes, bool AutoStart);
 
@@ -24,7 +25,7 @@ public static class SystemEndpoints
         var sessions = detail
             ? control.Sessions.Select(x => new SessionEngineDto(x.SessionId, x.Status.State, x.Status.Step, x.Status.Reason, x.Status.Crashes)).ToList()
             : [];
-        return new SystemStatusDto(whatsApp.Value.Provider, new SidecarStateDto(s.State, detail ? s.Step : null, detail ? s.Reason : null, s.Crashes, s.AutoStart), sessions);
+        return new SystemStatusDto(whatsApp.Value.Provider, new SidecarStateDto(s.State, detail ? s.Step : null, detail ? s.Reason : null, s.Crashes, s.AutoStart), sessions, detail ? nameof(ApiKeyScope.Admin) : nameof(ApiKeyScope.Standard));
     }
 
     public static void MapSystemEndpoints(this RouteGroupBuilder v1)

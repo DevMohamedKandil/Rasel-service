@@ -25,6 +25,7 @@ public class KeyScopeTests
         { "GET", "/v1/sessions/{id}", false },
         { "GET", "/v1/sessions/{id}/qr", false },
         { "GET", "/v1/sessions/{id}/linked-number", false },
+        { "POST", "/v1/sessions/{id}/logout", true },
         { "DELETE", "/v1/sessions/{id}", true },
         { "POST", "/v1/messages", false },
         { "GET", "/v1/messages/{id}", false },

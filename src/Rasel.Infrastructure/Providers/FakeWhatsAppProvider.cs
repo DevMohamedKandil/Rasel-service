@@ -44,6 +44,12 @@ public sealed class FakeWhatsAppProvider : IWhatsAppProvider
         return Task.CompletedTask;
     }
 
+    public Task LogoutAsync(Guid sessionId, CancellationToken ct)
+    {
+        lock (_gate) _sessions[sessionId] = SessionStatus.NeedsQr;
+        return Task.CompletedTask;
+    }
+
     public Task<string?> GetQrAsync(Guid sessionId, CancellationToken ct)
     {
         lock (_gate)

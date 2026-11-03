@@ -31,6 +31,9 @@ public sealed class WebJsWhatsAppProvider(HttpClient http, IOptions<WhatsAppOpti
     public Task StopSessionAsync(Guid sessionId, CancellationToken ct) =>
         SendDiscardAsync(HttpMethod.Delete, $"/sessions/{sessionId}", null, null, ct);
 
+    public Task LogoutAsync(Guid sessionId, CancellationToken ct) =>
+        SendDiscardAsync(HttpMethod.Post, $"/sessions/{sessionId}/logout", null, null, ct);
+
     public async Task<string?> GetQrAsync(Guid sessionId, CancellationToken ct)
     {
         using var response = await SendAsync(HttpMethod.Get, $"/sessions/{sessionId}/qr", null, null, ct);

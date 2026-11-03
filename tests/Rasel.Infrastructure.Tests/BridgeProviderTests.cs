@@ -76,6 +76,17 @@ public class BridgeProviderTests
     }
 
     [Fact]
+    public async Task Logout_posts_to_the_sidecar_with_the_token_and_a_failure_is_a_provider_error()
+    {
+        var stub = new Stub((r, _) => Text(HttpStatusCode.OK, "{\"ok\":true}"));
+        var provider = Build(stub, "tok");
+        await provider.LogoutAsync(Guid.NewGuid(), default);
+        Assert.Contains(stub.Calls, c => c.Item1 == HttpMethod.Post && c.Item2 == "/logout");
+        var failing = Build(new Stub((r, _) => Text(HttpStatusCode.Conflict, "nope")));
+        await Assert.ThrowsAsync<ProviderException>(() => failing.LogoutAsync(Guid.NewGuid(), default));
+    }
+
+    [Fact]
     public async Task Shared_token_is_sent_as_header_only_when_configured()
     {
         var seen = new List<string?>();

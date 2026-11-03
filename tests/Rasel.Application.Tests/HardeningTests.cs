@@ -162,6 +162,7 @@ public class HardeningTests
     {
         public virtual Task CreateSessionAsync(Guid sessionId, CancellationToken ct) => Task.CompletedTask;
         public virtual Task StopSessionAsync(Guid sessionId, CancellationToken ct) => Task.CompletedTask;
+        public virtual Task LogoutAsync(Guid sessionId, CancellationToken ct) => Task.CompletedTask;
         public virtual Task<string?> GetQrAsync(Guid sessionId, CancellationToken ct) => Task.FromResult<string?>(null);
         public virtual Task<SessionStatus> GetStatusAsync(Guid sessionId, CancellationToken ct) => Task.FromResult(SessionStatus.Connected);
         public virtual Task SendTextToPhoneAsync(Guid sessionId, string phoneE164, string text, Guid messageId, CancellationToken ct) => Task.CompletedTask;

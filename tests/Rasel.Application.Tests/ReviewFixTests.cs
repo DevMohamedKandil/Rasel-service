@@ -14,6 +14,7 @@ public class ReviewFixTests
     {
         public Task CreateSessionAsync(Guid sessionId, CancellationToken ct) => Task.CompletedTask;
         public Task StopSessionAsync(Guid sessionId, CancellationToken ct) => Task.CompletedTask;
+        public Task LogoutAsync(Guid sessionId, CancellationToken ct) => Task.CompletedTask;
         public Task<string?> GetQrAsync(Guid sessionId, CancellationToken ct) => Task.FromResult<string?>(null);
         public Task<SessionStatus> GetStatusAsync(Guid sessionId, CancellationToken ct) => Task.FromResult(SessionStatus.Connected);
         public virtual Task SendTextToPhoneAsync(Guid sessionId, string phoneE164, string text, Guid messageId, CancellationToken ct) =>

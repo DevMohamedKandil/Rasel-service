@@ -4,13 +4,13 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { createApp } = require('../src/app');
 
-function start({ ready = true, chats = [], token = '', phone } = {}) {
+function start({ ready = true, chats = [], token = '', phone, logouts } = {}) {
     const sent = [];
     const client = {
         getChats: async () => chats,
         sendMessage: async (id, text, opts) => { sent.push({ id, text, opts }); },
     };
-    const app = createApp({ client, state: { isReady: () => ready, qrHtml: () => '<img src="x">', phone: () => phone }, sharedToken: token });
+    const app = createApp({ client, state: { logout: async () => { if (logouts) logouts.n++; }, isReady: () => ready, qrHtml: () => '<img src="x">', phone: () => phone }, sharedToken: token });
     return new Promise(resolve => {
         const server = app.listen(0, '127.0.0.1', () => resolve({ base: `http://127.0.0.1:${server.address().port}`, sent, close: () => server.close() }));
     });
@@ -68,4 +68,16 @@ test('GET /info: number only when ready, token required, no-store', async () => 
     assert.deepStrictEqual(await (await fetch(s.base + '/info')).json(), { phone: null }); s.close();
     s = await start({ ready: true, phone: 'not digits' });
     assert.deepStrictEqual(await (await fetch(s.base + '/info')).json(), { phone: null }); s.close();
+});
+
+test('POST /logout: 200 when ready (calls logout), 409 when not ready, 401 without token', async () => {
+    const logouts = { n: 0 };
+    let s = await start({ ready: true, logouts, token: 't' });
+    assert.strictEqual((await fetch(s.base + '/logout', { method: 'POST' })).status, 401);
+    const ok = await fetch(s.base + '/logout', { method: 'POST', headers: { 'x-bridge-token': 't' } });
+    assert.strictEqual(ok.status, 200); assert.deepStrictEqual(await ok.json(), { ok: true });
+    assert.strictEqual(logouts.n, 1); s.close();
+    s = await start({ ready: false, logouts });
+    assert.strictEqual((await fetch(s.base + '/logout', { method: 'POST' })).status, 409);
+    assert.strictEqual(logouts.n, 1); s.close();
 });

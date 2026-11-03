@@ -39,6 +39,12 @@ public sealed class BridgeWhatsAppProvider(HttpClient http, Rasel.Infrastructure
 
     public Task PurgeSessionAsync(Guid sessionId, CancellationToken ct) => endpoint.StopSessionAsync(sessionId, purge: true, ct);
 
+    /// <summary>POST /logout on this session's sidecar (Rasel sidecar only; the legacy bridge has no such route and answers 404).</summary>
+    public async Task LogoutAsync(Guid sessionId, CancellationToken ct)
+    {
+        using var response = await SendAsync(sessionId, HttpMethod.Post, "/logout", null, ct);
+    }
+
     public async Task<string?> GetQrAsync(Guid sessionId, CancellationToken ct)
     {
         if (endpoint.Resolve(sessionId) is null && endpoint.NotReadyStatus(sessionId) is not null) return null;

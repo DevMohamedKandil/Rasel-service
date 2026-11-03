@@ -23,6 +23,8 @@ public interface IWhatsAppProvider
     Task<string?> GetLinkedPhoneAsync(Guid sessionId, CancellationToken ct) => Task.FromResult<string?>(null);
     /// <summary>Stops the session and deletes its stored login data (Managed mode) once the engine process is dead. Default: same as Stop.</summary>
     Task PurgeSessionAsync(Guid sessionId, CancellationToken ct) => StopSessionAsync(sessionId, ct);
+    /// <summary>Unlinks the WhatsApp number from the session and prepares a fresh QR. The session then needs a new scan.</summary>
+    Task LogoutAsync(Guid sessionId, CancellationToken ct);
     /// <param name="messageId">Stable per message, so a real provider can de-duplicate a retried send.</param>
     Task SendTextToPhoneAsync(Guid sessionId, string phoneE164, string text, Guid messageId, CancellationToken ct);
     /// <summary>Throws <see cref="ProviderException"/> unless exactly one group has this exact name.</summary>

@@ -29,6 +29,10 @@ public static class SessionEndpoints
             return Results.Ok(dto);
         }).RequireStandard();
 
+        // Unlinks the WhatsApp number (needs a new QR scan afterwards): Admin only.
+        group.MapPost("/{id:guid}/logout", async (Guid id, HttpContext http, LogoutSessionHandler handler, CancellationToken ct) =>
+            Results.Ok(await handler.HandleAsync(http.GetClient().Id, id, ct))).RequireAdmin();
+
         group.MapDelete("/{id:guid}", async (Guid id, bool? purge, HttpContext http, StopSessionHandler handler, CancellationToken ct) =>
         {
             await handler.HandleAsync(http.GetClient().Id, id, ct, purge == true);

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Rasel.Application.Common;
 using Rasel.Application.Ports;
 using Rasel.Domain.Entities;
@@ -102,6 +103,23 @@ public sealed class StopSessionHandler(ISessionRepository sessions, IWhatsAppPro
         if (purge) await provider.PurgeSessionAsync(id, ct); else await provider.StopSessionAsync(id, ct);
         session.UpdateStatus(SessionStatus.Stopped, clock.GetUtcNow());
         await sessions.UpdateAsync(session, ct);
+    }
+}
+
+public sealed class LogoutSessionHandler(ISessionRepository sessions, IWhatsAppProvider provider, TimeProvider clock, ILogger<LogoutSessionHandler> logger)
+{
+    /// <summary>Unlinks the number. 409 session_not_connected unless the session is connected. The audit line carries ids only, never the number.</summary>
+    public async Task<SessionDto> HandleAsync(Guid clientId, Guid id, CancellationToken ct)
+    {
+        var session = await SessionLookup.GetOrThrowAsync(sessions, id, clientId, ct);
+        var current = session.Status == SessionStatus.Stopped ? SessionStatus.Stopped : await provider.GetStatusAsync(id, ct);
+        if (current != SessionStatus.Connected)
+            throw new AppException(ErrorKind.Conflict, "session_not_connected", "The session is not connected, so there is no number to disconnect.");
+        await provider.LogoutAsync(id, ct);
+        session.UpdateStatus(SessionStatus.NeedsQr, clock.GetUtcNow());
+        await sessions.UpdateAsync(session, ct);
+        logger.LogInformation("Audit: session {SessionId} of client {ClientId} was disconnected (logout); a new QR scan is required", id, clientId);
+        return new SessionDto(session.Id, session.Name, session.Status);
     }
 }
 

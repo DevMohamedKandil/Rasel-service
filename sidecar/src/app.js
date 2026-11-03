@@ -38,6 +38,18 @@ function createApp({ client, state, sharedToken = '' }) {
         res.json({ phone: /^[0-9]{5,20}$/.test(phone || '') ? phone : null });
     });
 
+    // Unlinks the number (whatsapp-web.js logout); the host re-initializes so a fresh QR appears. 409 when not linked.
+    app.post('/logout', async (_req, res) => {
+        if (!state.isReady()) return res.status(409).json({ error: 'not_connected' });
+        try {
+            await state.logout();
+            return res.json({ ok: true });
+        } catch (err) {
+            console.log('Error logging out: ' + err.message);
+            return res.status(500).json({ error: 'logout_failed' });
+        }
+    });
+
     app.get('/sendMessage', async (req, res) => {
         if (!state.isReady()) return res.status(503).send('WhatsApp client not ready yet');
         const { phone, message } = req.query;

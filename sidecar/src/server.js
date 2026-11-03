@@ -49,7 +49,14 @@ client.on('disconnected', (reason) => {
     client.destroy().catch(e => console.log('destroy failed: ' + e)).finally(() => client.initialize());
 });
 
-const app = createApp({ client, state: { isReady: () => ready, qrHtml: () => qrHtml, phone: () => (client.info && client.info.wid && client.info.wid.user) || null }, sharedToken: config.sharedToken });
+async function logout() {
+    await client.logout();
+    ready = false; qrHtml = '';
+    // 'disconnected' may also fire and re-initialize itself; only do it here if nothing happened after a moment.
+    setTimeout(() => { if (!ready && !qrHtml) client.destroy().catch(() => {}).finally(() => client.initialize()); }, 3000);
+}
+
+const app = createApp({ client, state: { logout, isReady: () => ready, qrHtml: () => qrHtml, phone: () => (client.info && client.info.wid && client.info.wid.user) || null }, sharedToken: config.sharedToken });
 if (!config.sharedToken && config.host !== '127.0.0.1' && config.host !== 'localhost') {
     console.warn('WARNING: non-loopback HOST without SHARED_TOKEN; anyone who can reach it can send messages.');
 }
