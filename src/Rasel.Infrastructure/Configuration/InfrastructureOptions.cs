@@ -29,6 +29,8 @@ public sealed class WhatsAppOptions
     public const string FakeProvider = "Fake";
     public const string WebJsProvider = "WebJs";
     public const string BridgeProvider = "Bridge";
+    /// <summary>The API prepares, starts and supervises the bundled sidecar itself (see Sidecar:* options).</summary>
+    public const string ManagedProvider = "Managed";
 
     /// <summary>"Fake" (in-memory, default), "Bridge" (the real existing whatsapp-web.js bridge) or "WebJs" (invented sidecar contract).</summary>
     public string Provider { get; set; } = FakeProvider;

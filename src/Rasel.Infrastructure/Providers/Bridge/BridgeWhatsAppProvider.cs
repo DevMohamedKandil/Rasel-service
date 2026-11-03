@@ -22,9 +22,10 @@ namespace Rasel.Infrastructure.Providers.Bridge;
 /// surfaces as a permanent failure (404) when the outbox delivers.
 /// Errors: 503, 408, 429, 5xx, timeouts, network errors, open circuit = transient; 400, 404, 409 and other 4xx = permanent.
 /// </summary>
-public sealed class BridgeWhatsAppProvider(HttpClient http, IOptions<WhatsAppOptions> options) : IWhatsAppProvider
+public sealed class BridgeWhatsAppProvider(HttpClient http, Rasel.Infrastructure.Sidecar.IBridgeEndpoint endpoint) : IWhatsAppProvider
 {
-    private string Base => options.Value.Bridge.BaseUrl.TrimEnd('/');
+    /// <summary>Managed mode: no endpoint until the supervised sidecar answers. That is a transient failure, so queued sends wait instead of failing.</summary>
+    private (string BaseUrl, string Token) Endpoint => endpoint.Current ?? throw new ProviderException("The WhatsApp engine is not ready yet.", isTransient: true);
 
     public async Task CreateSessionAsync(Guid sessionId, CancellationToken ct) => await ProbeQrAsync(ct); // the bridge must at least be alive
 
@@ -86,9 +87,10 @@ public sealed class BridgeWhatsAppProvider(HttpClient http, IOptions<WhatsAppOpt
 
     private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, object? body, CancellationToken ct, bool throwOnError = true)
     {
-        using var request = new HttpRequestMessage(method, Base + path);
+        var (baseUrl, token) = Endpoint;
+        using var request = new HttpRequestMessage(method, baseUrl.TrimEnd('/') + path);
         if (body is not null) request.Content = JsonContent.Create(body);
-        if (options.Value.Bridge.SharedToken.Length > 0) request.Headers.Add("X-Bridge-Token", options.Value.Bridge.SharedToken);
+        if (token.Length > 0) request.Headers.Add("X-Bridge-Token", token);
 
         HttpResponseMessage response;
         try

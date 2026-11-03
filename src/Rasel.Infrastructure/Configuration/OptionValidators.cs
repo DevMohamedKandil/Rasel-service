@@ -54,9 +54,10 @@ public sealed class WhatsAppOptionsValidator : IValidateOptions<WhatsAppOptions>
     public ValidateOptionsResult Validate(string? name, WhatsAppOptions o)
     {
         if (o.Provider.Equals(WhatsAppOptions.FakeProvider, StringComparison.OrdinalIgnoreCase)) return ValidateOptionsResult.Success;
+        if (o.Provider.Equals(WhatsAppOptions.ManagedProvider, StringComparison.OrdinalIgnoreCase)) return ValidateOptionsResult.Success; // the supervisor wires URL and token
         if (o.Provider.Equals(WhatsAppOptions.BridgeProvider, StringComparison.OrdinalIgnoreCase)) return ValidateBridge(o.Bridge);
         if (!o.Provider.Equals(WhatsAppOptions.WebJsProvider, StringComparison.OrdinalIgnoreCase))
-            return ValidateOptionsResult.Fail("WhatsApp:Provider must be Fake, Bridge or WebJs.");
+            return ValidateOptionsResult.Fail("WhatsApp:Provider must be Fake, Managed, Bridge or WebJs.");
 
         var w = o.WebJs;
         var errors = new List<string>();

@@ -13,6 +13,7 @@ using Rasel.Infrastructure.Providers;
 using Rasel.Infrastructure.Providers.Bridge;
 using Rasel.Infrastructure.Providers.WebJs;
 using Rasel.Infrastructure.Security;
+using Rasel.Infrastructure.Sidecar;
 
 namespace Rasel.Infrastructure;
 
@@ -46,6 +47,7 @@ public static class DependencyInjection
             services.AddSingleton<IWhatsAppProvider>(sp => sp.GetRequiredService<FakeWhatsAppProvider>());
         }
 
+        services.TryAddSingleton<ISidecarControl, NullSidecarControl>();
         services.AddSingleton<FakeSmsProvider>();
         services.AddSingleton<ISmsProvider>(sp => sp.GetRequiredService<FakeSmsProvider>());
 

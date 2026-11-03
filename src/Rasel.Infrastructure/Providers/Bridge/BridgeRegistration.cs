@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
 using Polly;
@@ -13,6 +14,7 @@ public static class BridgeRegistration
     /// <summary>Retries only GET /Qr (pure read). Sends, including the GET /sendMessage send, are never retried here: the outbox owns that.</summary>
     public static IServiceCollection AddBridgeProvider(this IServiceCollection services)
     {
+        services.TryAddSingleton<Rasel.Infrastructure.Sidecar.IBridgeEndpoint, Rasel.Infrastructure.Sidecar.OptionsBridgeEndpoint>();
         services.AddHttpClient<IWhatsAppProvider, BridgeWhatsAppProvider>(c => c.Timeout = Timeout.InfiniteTimeSpan)
             .AddResilienceHandler("bridge", (pipeline, context) =>
             {
