@@ -28,11 +28,29 @@ public sealed class WhatsAppOptions
 {
     public const string FakeProvider = "Fake";
     public const string WebJsProvider = "WebJs";
+    public const string BridgeProvider = "Bridge";
 
-    /// <summary>"Fake" (in-memory, default) or "WebJs" (HTTP sidecar running whatsapp-web.js).</summary>
+    /// <summary>"Fake" (in-memory, default), "Bridge" (the real existing whatsapp-web.js bridge) or "WebJs" (invented sidecar contract).</summary>
     public string Provider { get; set; } = FakeProvider;
 
     public WebJsOptions WebJs { get; set; } = new();
+
+    public BridgeOptions Bridge { get; set; } = new();
+}
+
+public sealed class BridgeOptions
+{
+    /// <summary>Address of the whatsapp-web.js bridge, e.g. http://127.0.0.1:5001 (the bridge has no authentication: keep it loopback/private).</summary>
+    public string BaseUrl { get; set; } = "";
+
+    /// <summary>A real send drives a headless browser, so this is more generous than for the sidecar.</summary>
+    public int AttemptTimeoutSeconds { get; set; } = 30;
+
+    public int ReadRetries { get; set; } = 2;
+    public int BreakerMinimumThroughput { get; set; } = 5;
+    public double BreakerFailureRatio { get; set; } = 0.5;
+    public int BreakerSamplingSeconds { get; set; } = 30;
+    public int BreakerBreakSeconds { get; set; } = 30;
 }
 
 public sealed class WebJsOptions

@@ -10,6 +10,7 @@ using Rasel.Infrastructure.Health;
 using Rasel.Infrastructure.Messaging;
 using Rasel.Infrastructure.Persistence;
 using Rasel.Infrastructure.Providers;
+using Rasel.Infrastructure.Providers.Bridge;
 using Rasel.Infrastructure.Providers.WebJs;
 using Rasel.Infrastructure.Security;
 
@@ -35,7 +36,9 @@ public static class DependencyInjection
 
         // Fake stays the default; the real sidecar is opt-in via WhatsApp:Provider=WebJs.
         var provider = config["WhatsApp:Provider"] ?? WhatsAppOptions.FakeProvider;
-        if (provider.Equals(WhatsAppOptions.WebJsProvider, StringComparison.OrdinalIgnoreCase))
+        if (provider.Equals(WhatsAppOptions.BridgeProvider, StringComparison.OrdinalIgnoreCase))
+            services.AddBridgeProvider();
+        else if (provider.Equals(WhatsAppOptions.WebJsProvider, StringComparison.OrdinalIgnoreCase))
             services.AddWebJsProvider();
         else
         {

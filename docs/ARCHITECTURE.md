@@ -33,6 +33,24 @@ Rules that tests and review keep honest: the Domain has no package references; h
 
 Error mapping: network error, timeout, open circuit, `408`, `429`, `5xx` are **transient** (outbox retries); other `4xx` are **permanent**. An error body `{"error": "..."}` is redacted and truncated before it is stored. This contract was written from the provider interface; it has been exercised only against HTTP stubs.
 
+## Real bridge adapter (`Provider=Bridge`)
+
+`BridgeWhatsAppProvider` maps `IWhatsAppProvider` onto the existing whatsapp-web.js bridge (`WPService/server/index.js`) without changing it. The bridge has one global WhatsApp client, no auth and plain-text bodies, so:
+
+| Port operation | Bridge call |
+|---|---|
+| Create session | `GET /Qr` (alive check); sessions are only a Rasel concept, all map to the one client |
+| Stop session | no-op (the shared bridge is never stopped) |
+| Status | `GET /Qr` + probe `POST /doSendPersonalizedTextToGroup` with an empty group name: `503` = not ready (NeedsQr if a QR is served, else Starting), `400` = ready (Connected). The probe fails validation, nothing is ever sent |
+| QR | `GET /Qr` (HTML `<img>`), hidden once Connected because the bridge keeps serving the stale QR |
+| Send to group | `POST /doSendPersonalizedTextToGroup` `{"groupName","message"}` |
+| Send to phone | `GET /sendMessage?phone=<digits>&message=...` (text in the URL; not exercised in the proof) |
+| Find groups | not available: returns the requested name optimistically; a missing group fails at delivery |
+
+Error mapping: `503` (not ready), `5xx`, `408`, `429`, timeouts, network errors, open circuit are **transient**; `400`, `404` (group not found), `409` (ambiguous group), other `4xx` are **permanent**. Only `GET /Qr` is retried at HTTP level.
+
+Proven 2026-11-03 against the live bridge on 127.0.0.1:5001: session became `Connected`; a message to a nonexistent group ended `Failed` (404, permanent, 1 attempt); one message to the group "Afzaz Dev" ended `Sent` (1 attempt). Limits: no delivery receipt (Sent = bridge accepted), a 5xx after the bridge already sent could duplicate, group-existence is only known at delivery, phone send untested.
+
 ## Decisions
 
 ### ADR-1 Clean layering, ports in Application
@@ -73,4 +91,5 @@ Handlers throw `AppException(kind, code, detail)`; one exception handler maps to
 * Single node: the in-process rate limiter and the SQLite file are not shared across instances.
 * Daily message quota is a soft limit (count-then-insert), documented in `DailyLimitGuard`.
 * Webhooks are fire-and-forget (logged on failure, not retried).
-* Real whatsapp-web.js sidecar not built or run here.
+* The invented `WebJs` sidecar was never built; only the `Bridge` adapter ran against a real whatsapp-web.js instance.
+* There is no `GET /v1/messages/{id}`; message status was read from the database in the real proof.

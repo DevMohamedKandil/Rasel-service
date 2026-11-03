@@ -2,7 +2,7 @@
 
 A standalone, reusable WhatsApp messaging and OTP gateway. Other projects integrate with it over REST using an API key.
 
-> **WhatsApp is FAKE by default.** `WhatsApp:Provider=Fake` keeps everything in memory: no real message is ever sent. A fake session shows a fake QR and becomes `Connected` the first time its QR is fetched. A real provider (`WebJs`, an HTTP client for a whatsapp-web.js sidecar) is implemented and tested against stubs, but has **not** been run against a real sidecar.
+> **WhatsApp is FAKE by default.** `WhatsApp:Provider=Fake` keeps everything in memory: no real message is ever sent. A fake session shows a fake QR and becomes `Connected` the first time its QR is fetched. Real providers: `Bridge` (adapter for the existing whatsapp-web.js bridge, proven with one real group send, see ARCHITECTURE.md) and `WebJs` (invented sidecar contract, stub-tested only).
 
 ## Architecture
 
@@ -71,7 +71,9 @@ Every setting lives in `src/Rasel.Api/appsettings.json` and can be overridden wi
 | `Outbox:MaxAttempts` | 5 | Attempts before a transient failure becomes `Failed` |
 | `Outbox:BaseBackoffSeconds` / `Outbox:MaxBackoffSeconds` | 5 / 900 | Exponential retry backoff |
 | `Outbox:LeaseSeconds` / `Outbox:BatchSize` | 120 / 10 | Claim lease (crash recovery) and batch size |
-| `WhatsApp:Provider` | `Fake` | `Fake` or `WebJs` |
+| `WhatsApp:Provider` | `Fake` | `Fake`, `Bridge` or `WebJs` |
+| `WhatsApp:Bridge:BaseUrl` | empty | Real bridge address, e.g. `http://127.0.0.1:5001` (required for `Bridge`; plain http only on loopback, the bridge has no auth) |
+| `WhatsApp:Bridge:AttemptTimeoutSeconds` / `ReadRetries` / `Breaker*` | 30 / 2 / as WebJs | Same resilience knobs as WebJs |
 | `WhatsApp:WebJs:BaseUrl` / `ApiToken` | empty | Sidecar address and bearer token (required for `WebJs`) |
 | `WhatsApp:WebJs:AttemptTimeoutSeconds` | 10 | Per-attempt HTTP timeout |
 | `WhatsApp:WebJs:ReadRetries` | 2 | Retries for GET/DELETE only (sends are never retried at HTTP level) |

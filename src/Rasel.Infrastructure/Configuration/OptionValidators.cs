@@ -54,8 +54,9 @@ public sealed class WhatsAppOptionsValidator : IValidateOptions<WhatsAppOptions>
     public ValidateOptionsResult Validate(string? name, WhatsAppOptions o)
     {
         if (o.Provider.Equals(WhatsAppOptions.FakeProvider, StringComparison.OrdinalIgnoreCase)) return ValidateOptionsResult.Success;
+        if (o.Provider.Equals(WhatsAppOptions.BridgeProvider, StringComparison.OrdinalIgnoreCase)) return ValidateBridge(o.Bridge);
         if (!o.Provider.Equals(WhatsAppOptions.WebJsProvider, StringComparison.OrdinalIgnoreCase))
-            return ValidateOptionsResult.Fail("WhatsApp:Provider must be Fake or WebJs.");
+            return ValidateOptionsResult.Fail("WhatsApp:Provider must be Fake, Bridge or WebJs.");
 
         var w = o.WebJs;
         var errors = new List<string>();
@@ -68,6 +69,22 @@ public sealed class WhatsAppOptionsValidator : IValidateOptions<WhatsAppOptions>
         if (w.BreakerFailureRatio is <= 0 or > 1) errors.Add("WhatsApp:WebJs:BreakerFailureRatio must be in (0, 1].");
         if (w.BreakerSamplingSeconds < 1) errors.Add("WhatsApp:WebJs:BreakerSamplingSeconds must be positive.");
         if (w.BreakerBreakSeconds < 1) errors.Add("WhatsApp:WebJs:BreakerBreakSeconds must be positive.");
+        return errors.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(errors);
+    }
+
+    private static ValidateOptionsResult ValidateBridge(BridgeOptions b)
+    {
+        var errors = new List<string>();
+        if (!Uri.TryCreate(b.BaseUrl, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
+            errors.Add("WhatsApp:Bridge:BaseUrl must be an absolute http(s) URL.");
+        else if (!uri.IsLoopback && uri.Scheme == "http")
+            errors.Add("WhatsApp:Bridge:BaseUrl must be a loopback address or https (the bridge has no authentication).");
+        if (b.AttemptTimeoutSeconds is < 1 or > 120) errors.Add("WhatsApp:Bridge:AttemptTimeoutSeconds must be between 1 and 120.");
+        if (b.ReadRetries is < 0 or > 5) errors.Add("WhatsApp:Bridge:ReadRetries must be between 0 and 5.");
+        if (b.BreakerMinimumThroughput < 2) errors.Add("WhatsApp:Bridge:BreakerMinimumThroughput must be at least 2.");
+        if (b.BreakerFailureRatio is <= 0 or > 1) errors.Add("WhatsApp:Bridge:BreakerFailureRatio must be in (0, 1].");
+        if (b.BreakerSamplingSeconds < 1) errors.Add("WhatsApp:Bridge:BreakerSamplingSeconds must be positive.");
+        if (b.BreakerBreakSeconds < 1) errors.Add("WhatsApp:Bridge:BreakerBreakSeconds must be positive.");
         return errors.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(errors);
     }
 }
