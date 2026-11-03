@@ -33,3 +33,7 @@ Needs Node 18+ and a Chromium (downloaded by puppeteer on `npm install`, or set 
 Bodies are plain text. The contract is pinned by `test/contract.test.js`. Differences from the original prototype: no file endpoints, no company text, no argv ports, constant-time token check, strict phone validation (8-15 digits).
 
 `patches/` fixes whatsapp-web.js 1.34.7 against the July 2026 WhatsApp Web change (applied by `patch-package` on install).
+
+## Known crash: `Cannot read properties of null (reading 'Socket')`
+
+Cause: whatsapp-web.js `Client.inject()` (Client.js:147) calls `window.require('WAWebSocketModel').Socket` right after auth; while WhatsApp Web is still loading/navigating the module is `null`, the rejected promise becomes an uncaught exception and the process exits. It is a startup race, same family as "Execution context was destroyed". Versions, patch and launch flags are identical to the old bridge (puppeteer 24.38.0 is now pinned explicitly). Fix: `src/server.js` destroys the browser and re-initializes with exponential back-off (max 5 consecutive tries, reset on `ready`); anything else still exits so a supervisor restarts it. Verified: fresh install with `npm ci`, fresh SESSION_DIR, reaches the QR state and stays up; the post-scan race itself needs a real phone link to exercise.

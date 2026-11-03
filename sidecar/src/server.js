@@ -16,13 +16,24 @@ const client = new Client({
     puppeteer: { args, executablePath: config.chromiumPath },
 });
 
-// WhatsApp Web navigates during a cold first load and whatsapp-web.js does not guard for it; retry initialize()
-// for that one known race, crash on anything else so real bugs stay visible.
+// WhatsApp Web is still loading/navigating while whatsapp-web.js injects (cold start or restore of a saved session).
+// Known transient races: "Execution context was destroyed" and "Cannot read properties of null (reading 'Socket')"
+// (window.require('WAWebSocketModel') is null before WA Web finished loading: Client.js inject()). Destroy the browser and
+// re-initialize with back-off, bounded so a real bug still exits and the supervisor restarts the process.
+const TRANSIENT = /Execution context was destroyed|reading 'Socket'|Target closed|Protocol error/;
+const MAX_RETRIES = 5;
+let retries = 0;
+function reinitialize(reason) {
+    retries += 1;
+    ready = false;
+    const delay = Math.min(30000, 2000 * 2 ** (retries - 1));
+    console.log(`Transient init error (${retries}/${MAX_RETRIES}), retrying in ${delay}ms: ${reason}`);
+    setTimeout(() => client.destroy().catch(() => {}).finally(() => client.initialize()), delay);
+}
 process.on('uncaughtException', (err) => {
-    if (err && String(err.message).includes('Execution context was destroyed')) {
-        console.log('Recovered from navigation race, retrying: ' + err.message);
-        ready = false;
-        setTimeout(() => client.initialize(), 2000);
+    const msg = String((err && err.message) || err);
+    if (TRANSIENT.test(msg) && retries < MAX_RETRIES) {
+        reinitialize(msg);
     } else {
         console.log('Uncaught exception, exiting: ' + ((err && err.stack) || err));
         process.exit(1);
@@ -30,7 +41,7 @@ process.on('uncaughtException', (err) => {
 });
 
 client.on('qr', (qr) => qrCode.toDataURL(qr, (err, url) => { if (!err) qrHtml = `<img src="${url}">`; }));
-client.on('ready', () => { ready = true; qrHtml = ''; console.log('Client is ready'); });
+client.on('ready', () => { ready = true; retries = 0; qrHtml = ''; console.log('Client is ready'); });
 client.on('auth_failure', (msg) => console.error('Authentication failure: ' + msg));
 client.on('disconnected', (reason) => {
     console.log('Client disconnected: ' + reason);

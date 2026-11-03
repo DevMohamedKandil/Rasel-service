@@ -50,3 +50,6 @@ WhatsApp__Bridge__SharedToken=<same as the sidecar SharedToken>
 | `WEBHOOKS_*` | `Webhooks:*` | no | See the main README |
 
 Every other API setting in the main README can be added to the `environment:` block of the compose file.
+
+## Sidecar supervision (required)
+The sidecar deliberately exits on unknown uncaught errors. Run it under a supervisor that restarts on exit (Docker `restart: unless-stopped`, NSSM, or the Scheduled Task with "restart on failure"), with a delay of a few seconds, and alert if it restarts repeatedly.
