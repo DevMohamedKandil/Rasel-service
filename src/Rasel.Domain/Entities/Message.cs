@@ -20,6 +20,8 @@ public class Message
     public string? Body { get; private set; }
     public string? IdempotencyKey { get; private set; }
     public string? Fingerprint { get; private set; }
+    /// <summary>Keyed hash of (client, recipient number) for the per-recipient daily cap; null for groups.</summary>
+    public string? RecipientKey { get; private set; }
     public MessageStatus Status { get; private set; }
     public string? Error { get; private set; }
     public int Attempts { get; private set; }
@@ -33,17 +35,17 @@ public class Message
 
     public static Message Queue(
         Guid clientId, Guid sessionId, TargetType type, string displayTarget, string destination, string body,
-        string? idempotencyKey, string? fingerprint, DateTimeOffset now) => new()
+        string? idempotencyKey, string? fingerprint, DateTimeOffset now, string? recipientKey = null) => new()
     {
         Id = Guid.NewGuid(), ClientId = clientId, SessionId = sessionId, TargetType = type, Target = displayTarget,
-        Destination = destination, Body = body, IdempotencyKey = idempotencyKey, Fingerprint = fingerprint,
+        Destination = destination, Body = body, IdempotencyKey = idempotencyKey, Fingerprint = fingerprint, RecipientKey = recipientKey,
         Status = MessageStatus.Queued, NextAttemptAt = now, CreatedAt = now,
     };
 
     /// <summary>A message that was delivered (or failed) inline and never needed the outbox. Stores no body.</summary>
-    public static Message Record(Guid id, Guid clientId, Guid sessionId, string displayTarget, bool sent, string? error, DateTimeOffset now) => new()
+    public static Message Record(Guid id, Guid clientId, Guid sessionId, string displayTarget, bool sent, string? error, DateTimeOffset now, string? recipientKey = null) => new()
     {
-        Id = id, ClientId = clientId, SessionId = sessionId, TargetType = TargetType.Phone, Target = displayTarget,
+        Id = id, ClientId = clientId, SessionId = sessionId, TargetType = TargetType.Phone, Target = displayTarget, RecipientKey = recipientKey,
         Status = sent ? MessageStatus.Sent : MessageStatus.Failed, Error = sent ? null : error, Attempts = 1,
         NextAttemptAt = now, CreatedAt = now, SentAt = sent ? now : null,
     };

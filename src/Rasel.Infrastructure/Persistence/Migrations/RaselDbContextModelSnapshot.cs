@@ -88,6 +88,10 @@ namespace Rasel.Infrastructure.Persistence.Migrations
                     b.Property<long>("NextAttemptAt")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("RecipientKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.Property<long?>("SentAt")
                         .HasColumnType("INTEGER");
 
@@ -118,6 +122,8 @@ namespace Rasel.Infrastructure.Persistence.Migrations
                         .HasFilter("\"IdempotencyKey\" IS NOT NULL");
 
                     b.HasIndex("Status", "NextAttemptAt");
+
+                    b.HasIndex("ClientId", "RecipientKey", "CreatedAt");
 
                     b.ToTable("Messages");
                 });

@@ -144,7 +144,7 @@ public class InfrastructureUnitTests
     {
         Assert.False(new OtpOptionsValidator().Validate(null, new OtpOptions { MaxAttempts = 0 }).Succeeded);
         Assert.False(new OtpOptionsValidator().Validate(null, new OtpOptions { TtlSeconds = 60, ResendCooldownSeconds = 60 }).Succeeded);
-        Assert.False(new OutboxOptionsValidator().Validate(null, new OutboxOptions { MinDelayMs = 100, MaxDelayMs = 10 }).Succeeded);
+        Assert.False(new OutboxOptionsValidator().Validate(null, new OutboxOptions { BatchSize = 0 }).Succeeded);
         Assert.False(new WhatsAppOptionsValidator().Validate(null, new WhatsAppOptions { Provider = "WebJs" }).Succeeded);
         Assert.False(new WhatsAppOptionsValidator().Validate(null, new WhatsAppOptions { Provider = "Nope" }).Succeeded);
         Assert.True(new WhatsAppOptionsValidator().Validate(null, new WhatsAppOptions()).Succeeded);

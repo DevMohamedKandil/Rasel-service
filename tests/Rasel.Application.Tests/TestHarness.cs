@@ -17,6 +17,14 @@ public sealed class FakeClock : TimeProvider
     public override DateTimeOffset GetUtcNow() => UtcNow;
 }
 
+/// <summary>Returns queued values (clamped into range), then the minimum.</summary>
+public sealed class FakeRandom : IRandomSource
+{
+    public Queue<int> Values { get; } = new();
+    public int Next(int minInclusive, int maxExclusive) =>
+        Values.Count == 0 ? minInclusive : Math.Clamp(Values.Dequeue(), minInclusive, maxExclusive - 1);
+}
+
 public sealed class FixedCodeGenerator : ICodeGenerator
 {
     public string Next { get; set; } = "123456";
@@ -41,6 +49,8 @@ public sealed class InMemoryStore : ISessionRepository, IMessageRepository, IOtp
         Task.FromResult(Messages.FirstOrDefault(m => m.ClientId == clientId && m.IdempotencyKey == key));
     public Task<int> CountSinceAsync(Guid clientId, DateTimeOffset since, CancellationToken ct) =>
         Task.FromResult(Messages.Count(m => m.ClientId == clientId && m.CreatedAt >= since));
+    public Task<int> CountForRecipientSinceAsync(Guid clientId, string recipientKey, DateTimeOffset since, CancellationToken ct) =>
+        Task.FromResult(Messages.Count(m => m.ClientId == clientId && m.RecipientKey == recipientKey && m.CreatedAt >= since));
     public Task<bool> TryAddAsync(Message message, CancellationToken ct)
     {
         if (message.IdempotencyKey is not null && Messages.Any(m => m.ClientId == message.ClientId && m.IdempotencyKey == message.IdempotencyKey))
@@ -86,6 +96,10 @@ public sealed class Harness
     public FakeSmsProvider Sms { get; } = new();
     public OtpOptions Options { get; } = new();
     public OutboxOptions Outbox { get; } = new();
+    public PacingOptions Pacing { get; } = new() { MinDelayMs = 0, MaxDelayMs = 0, MinGapMs = 0, DailyPerRecipient = 1000 };
+    public FakeRandom Random { get; } = new();
+    public SendPacer Pacer => _pacer ??= new(Pacing, Clock, Random);
+    private SendPacer? _pacer;
     public RecordingWebhooks Webhooks { get; } = new();
     public ApiClient Client { get; }
     public HmacOtpHasher Hasher { get; } = new("pepper-pepper-pepper-pepper-pepper-1");
@@ -112,10 +126,12 @@ public sealed class Harness
     }
 
     public DailyLimitGuard DailyLimit => new(Store, Clock);
+    public RecipientLimitGuard RecipientLimit => new(Store, Hasher, Pacing, Clock);
+    public OtpMessageComposer Composer => new(Options, Random);
     public CreateSessionHandler CreateSession() => new(Store, WhatsApp, Clock);
-    public SendTextHandler SendText() => new(Store, Store, WhatsApp, DailyLimit, Clock);
+    public SendTextHandler SendText() => new(Store, Store, WhatsApp, DailyLimit, RecipientLimit, Clock);
     public RequestOtpHandler RequestOtp() =>
-        new(Store, Store, Store, WhatsApp, Sms, Hasher, Codes, Limiter, DailyLimit, Clock, Options, NullLogger<RequestOtpHandler>.Instance);
+        new(Store, Store, Store, WhatsApp, Sms, Hasher, Codes, Limiter, DailyLimit, RecipientLimit, Composer, Pacer, Clock, Options, NullLogger<RequestOtpHandler>.Instance);
     public VerifyOtpHandler VerifyOtp() => new(Store, Hasher, Tokens, Clock, Options, NullLogger<VerifyOtpHandler>.Instance);
-    public MessageSender Sender() => new(Store, WhatsApp, Webhooks, Outbox, Clock, NullLogger<MessageSender>.Instance);
+    public MessageSender Sender() => new(Store, WhatsApp, Webhooks, Outbox, Pacer, Clock, NullLogger<MessageSender>.Instance);
 }

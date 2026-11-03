@@ -36,6 +36,8 @@ public sealed class RaselDbContext(DbContextOptions<RaselDbContext> options) : D
             e.Property(m => m.Body).HasMaxLength(4096);
             e.Property(m => m.IdempotencyKey).HasMaxLength(128);
             e.Property(m => m.Fingerprint).HasMaxLength(64);
+            e.Property(m => m.RecipientKey).HasMaxLength(64);
+            e.HasIndex(m => new { m.ClientId, m.RecipientKey, m.CreatedAt });
             e.Property(m => m.Error).HasMaxLength(256);
             e.Property(m => m.Version).IsConcurrencyToken();
             e.HasIndex(m => new { m.ClientId, m.CreatedAt });

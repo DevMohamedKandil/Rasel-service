@@ -15,6 +15,15 @@ public static class DependencyInjection
         services.AddOptions<OutboxOptions>().Bind(config.GetSection("Outbox")).ValidateOnStart();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<OtpOptions>, OtpOptionsValidator>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>());
+        services.AddOptions<PacingOptions>().Bind(config.GetSection("Pacing")).ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<PacingOptions>, PacingOptionsValidator>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<OtpOptions>, OtpTemplatesValidator>());
+        services.AddSingleton(sp => sp.GetRequiredService<IOptions<PacingOptions>>().Value);
+        services.TryAddSingleton<IRandomSource, SystemRandomSource>();
+        services.AddSingleton<ISendPacer, SendPacer>();
+        services.AddSingleton<OtpMessageComposer>();
+        services.AddScoped<RecipientLimitGuard>();
+        services.AddScoped<GetMessageHandler>();
         services.AddSingleton(sp => sp.GetRequiredService<IOptions<OtpOptions>>().Value);
         services.AddSingleton(sp => sp.GetRequiredService<IOptions<OutboxOptions>>().Value);
 

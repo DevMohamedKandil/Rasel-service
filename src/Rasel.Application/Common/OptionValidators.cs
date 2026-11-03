@@ -23,11 +23,31 @@ public sealed class OutboxOptionsValidator : IValidateOptions<OutboxOptions>
     {
         var errors = new List<string>();
         if (o.PollIntervalMs < 1) errors.Add("Outbox:PollIntervalMs must be positive.");
-        if (o.MinDelayMs < 0 || o.MaxDelayMs < o.MinDelayMs) errors.Add("Outbox:MaxDelayMs must be >= MinDelayMs >= 0.");
         if (o.MaxAttempts is < 1 or > 20) errors.Add("Outbox:MaxAttempts must be between 1 and 20.");
         if (o.BaseBackoffSeconds < 0 || o.MaxBackoffSeconds < o.BaseBackoffSeconds) errors.Add("Outbox:MaxBackoffSeconds must be >= BaseBackoffSeconds >= 0.");
         if (o.LeaseSeconds < 5) errors.Add("Outbox:LeaseSeconds must be at least 5.");
         if (o.BatchSize is < 1 or > 100) errors.Add("Outbox:BatchSize must be between 1 and 100.");
         return errors.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(errors);
+    }
+}
+
+public sealed class OtpTemplatesValidator : IValidateOptions<OtpOptions>
+{
+    public ValidateOptionsResult Validate(string? name, OtpOptions o)
+    {
+        var errors = new List<string>();
+        if (string.IsNullOrWhiteSpace(o.AppName)) errors.Add("Otp:AppName is required.");
+        Check("TemplatesEn", o.TemplatesEn, errors);
+        Check("TemplatesAr", o.TemplatesAr, errors);
+        return errors.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(errors);
+    }
+
+    private static void Check(string field, string[]? templates, List<string> errors)
+    {
+        if (templates is null) return;
+        if (templates.Length == 0) errors.Add($"Otp:{field} must not be empty (omit it to use the defaults).");
+        foreach (var t in templates)
+            if (t is null || !t.Contains("{app}") || !t.Contains("{code}"))
+                errors.Add($"Otp:{field}: every template must contain {{app}} and {{code}}.");
     }
 }

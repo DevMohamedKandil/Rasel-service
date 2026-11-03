@@ -5,10 +5,6 @@ public sealed class OutboxOptions
     /// <summary>How often the worker polls for due messages when the outbox is idle.</summary>
     public int PollIntervalMs { get; set; } = 500;
 
-    /// <summary>Random pause between sends; makes traffic look less robotic to WhatsApp. 0 disables it.</summary>
-    public int MinDelayMs { get; set; } = 1000;
-    public int MaxDelayMs { get; set; } = 3000;
-
     /// <summary>Total attempts (first try included) before a transient failure becomes terminal.</summary>
     public int MaxAttempts { get; set; } = 5;
     public int BaseBackoffSeconds { get; set; } = 5;

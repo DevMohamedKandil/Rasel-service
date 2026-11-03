@@ -81,6 +81,9 @@ public sealed class MessageRepository(RaselDbContext db) : IMessageRepository
     public Task<int> CountSinceAsync(Guid clientId, DateTimeOffset since, CancellationToken ct) =>
         db.Messages.CountAsync(m => m.ClientId == clientId && m.CreatedAt >= since, ct);
 
+    public Task<int> CountForRecipientSinceAsync(Guid clientId, string recipientKey, DateTimeOffset since, CancellationToken ct) =>
+        db.Messages.CountAsync(m => m.ClientId == clientId && m.RecipientKey == recipientKey && m.CreatedAt >= since, ct);
+
     public Task<bool> TryAddAsync(Message message, CancellationToken ct) => db.TryAddAsync(message, ct);
 
     public Task<bool> TrySaveAsync(Message message, CancellationToken ct) => db.TrySaveAsync(ct);

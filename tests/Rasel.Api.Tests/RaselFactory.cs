@@ -34,8 +34,10 @@ public sealed class RaselFactory(int dailyLimit = 1000, Dictionary<string, strin
         builder.UseSetting("Database:Path", _dbPath);
         builder.UseSetting("Seed:DevApiKey", ApiKey);
         builder.UseSetting("Seed:DevDailyMessageLimit", dailyLimit.ToString());
-        builder.UseSetting("Outbox:MinDelayMs", "0");
-        builder.UseSetting("Outbox:MaxDelayMs", "0");
+        builder.UseSetting("Pacing:MinDelayMs", "0");
+        builder.UseSetting("Pacing:MinGapMs", "0");
+        builder.UseSetting("Pacing:DailyPerRecipient", "1000");
+        builder.UseSetting("Pacing:MaxDelayMs", "0");
         builder.UseSetting("Outbox:PollIntervalMs", "20");
         builder.UseEnvironment(environment);
         foreach (var (key, value) in settings ?? []) builder.UseSetting(key, value);

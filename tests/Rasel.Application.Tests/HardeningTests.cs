@@ -64,7 +64,7 @@ public class HardeningTests
         var h = await Harness.CreateConnectedAsync();
         var requestLog = new CaptureLogger<RequestOtpHandler>();
         var verifyLog = new CaptureLogger<VerifyOtpHandler>();
-        var request = new RequestOtpHandler(h.Store, h.Store, h.Store, h.WhatsApp, h.Sms, h.Hasher, h.Codes, h.Limiter, h.DailyLimit, h.Clock, h.Options, requestLog);
+        var request = new RequestOtpHandler(h.Store, h.Store, h.Store, h.WhatsApp, h.Sms, h.Hasher, h.Codes, h.Limiter, h.DailyLimit, h.RecipientLimit, h.Composer, h.Pacer, h.Clock, h.Options, requestLog);
         var verify = new VerifyOtpHandler(h.Store, h.Hasher, h.Tokens, h.Clock, h.Options, verifyLog);
 
         var req = await request.HandleAsync(h.Client, new(Phone, "login", "whatsapp"), default);
@@ -110,7 +110,7 @@ public class HardeningTests
         var h = await Harness.CreateConnectedAsync();
         await h.SendText().HandleAsync(h.Client, new SendTextCommand(null, Phone, null, "x"), default);
         var message = h.Store.Messages.Single();
-        var sender = new MessageSender(h.Store, new LeakyProvider(), h.Webhooks, h.Outbox, h.Clock, Microsoft.Extensions.Logging.Abstractions.NullLogger<MessageSender>.Instance);
+        var sender = new MessageSender(h.Store, new LeakyProvider(), h.Webhooks, h.Outbox, h.Pacer, h.Clock, Microsoft.Extensions.Logging.Abstractions.NullLogger<MessageSender>.Instance);
 
         await sender.SendAsync(message, default);
 

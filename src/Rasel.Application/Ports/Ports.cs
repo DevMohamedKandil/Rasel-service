@@ -49,6 +49,7 @@ public interface IMessageRepository
     Task<Message?> GetAsync(Guid id, CancellationToken ct);
     Task<Message?> FindByIdempotencyKeyAsync(Guid clientId, string key, CancellationToken ct);
     Task<int> CountSinceAsync(Guid clientId, DateTimeOffset since, CancellationToken ct);
+    Task<int> CountForRecipientSinceAsync(Guid clientId, string recipientKey, DateTimeOffset since, CancellationToken ct);
 
     /// <summary>Returns false (and stores nothing) when another message already owns the same (client, idempotency key).</summary>
     Task<bool> TryAddAsync(Message message, CancellationToken ct);

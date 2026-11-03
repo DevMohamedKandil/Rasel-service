@@ -49,9 +49,6 @@ public sealed class OutboxWorker(
         foreach (var message in batch)
         {
             ct.ThrowIfCancellationRequested();
-            // A small random pause between sends makes traffic look less robotic to WhatsApp.
-            if (options.MaxDelayMs > 0)
-                await Task.Delay(TimeSpan.FromMilliseconds(Random.Shared.Next(options.MinDelayMs, options.MaxDelayMs + 1)), clock, ct);
             await sender.SendAsync(message, ct);
         }
 

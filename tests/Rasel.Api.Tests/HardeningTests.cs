@@ -264,9 +264,9 @@ public class HardeningTests
     [Fact]
     public async Task Invalid_configuration_fails_at_startup_not_at_first_use()
     {
-        await using var f = new RaselFactory(settings: new() { ["Outbox:MaxDelayMs"] = "-5" });
+        await using var f = new RaselFactory(settings: new() { ["Pacing:MaxDelayMs"] = "-5" });
         var ex = Assert.ThrowsAny<Exception>(() => f.CreateClient());
-        Assert.Contains("Outbox", Flatten(ex));
+        Assert.Contains("Pacing", Flatten(ex));
     }
 
     // ---- health ------------------------------------------------------------------------------------------

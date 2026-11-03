@@ -12,7 +12,7 @@ namespace Rasel.Application.UseCases;
 /// </summary>
 public sealed class MessageSender(
     IMessageRepository messages, IWhatsAppProvider provider, IWebhookDispatcher webhooks,
-    OutboxOptions options, TimeProvider clock, ILogger<MessageSender> logger)
+    OutboxOptions options, ISendPacer pacer, TimeProvider clock, ILogger<MessageSender> logger)
 {
     public async Task SendAsync(Message message, CancellationToken ct)
     {
@@ -21,6 +21,7 @@ public sealed class MessageSender(
             if (message.Body is null || message.Destination is null)
                 throw new ProviderException("Message has no content to send.");
 
+            await pacer.WaitTurnAsync(message.SessionId, SendPriority.Bulk, ct);
             if (message.TargetType == TargetType.Phone)
                 await provider.SendTextToPhoneAsync(message.SessionId, message.Destination, message.Body, message.Id, ct);
             else

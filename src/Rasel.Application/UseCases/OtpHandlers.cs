@@ -7,14 +7,14 @@ using Rasel.Domain.ValueObjects;
 
 namespace Rasel.Application.UseCases;
 
-public sealed record RequestOtpCommand(string? Phone, string? Purpose, string? Channel);
+public sealed record RequestOtpCommand(string? Phone, string? Purpose, string? Channel, string? Language = null);
 
 public sealed record RequestOtpResult(Guid ChallengeId, int ExpiresInSeconds, int ResendAfterSeconds);
 
 public sealed class RequestOtpHandler(
     IOtpRepository otps, ISessionRepository sessions, IMessageRepository messages,
     IWhatsAppProvider whatsApp, ISmsProvider sms, IOtpHasher hasher, ICodeGenerator codes,
-    IRateLimiter limiter, DailyLimitGuard dailyLimit, TimeProvider clock, OtpOptions options, ILogger<RequestOtpHandler> logger)
+    IRateLimiter limiter, DailyLimitGuard dailyLimit, RecipientLimitGuard recipientLimit, OtpMessageComposer composer, ISendPacer pacer, TimeProvider clock, OtpOptions options, ILogger<RequestOtpHandler> logger)
 {
     public async Task<RequestOtpResult> HandleAsync(ApiClient client, RequestOtpCommand cmd, CancellationToken ct)
     {
@@ -38,6 +38,7 @@ public sealed class RequestOtpHandler(
         }
 
         await dailyLimit.EnsureWithinAsync(client, ct);
+        await recipientLimit.EnsureWithinAsync(client.Id, phone.E164, ct);
 
         var id = Guid.NewGuid();
         var code = codes.GenerateNumeric(options.CodeLength);
@@ -50,8 +51,8 @@ public sealed class RequestOtpHandler(
         if (active.Count > 0 && !await otps.TrySaveAsync(active, ct)) throw TooSoon(options.ResendCooldownSeconds);
         if (!await otps.TryAddAsync(challenge, ct)) throw TooSoon(options.ResendCooldownSeconds);
 
-        var text = $"Your verification code is {code}. It expires in {options.TtlSeconds / 60} minutes. Do not share it.";
-        if (!await DeliverAsync(client.Id, phone, text, viaSms, ct))
+        var text = composer.Compose(code, cmd.Language);
+        if (!await DeliverAsync(client.Id, phone, text, viaSms, recipientLimit.KeyFor(client.Id, phone.E164), ct))
         {
             challenge.Supersede();
             await otps.TrySaveAsync([challenge], ct);
@@ -74,7 +75,7 @@ public sealed class RequestOtpHandler(
     };
 
     /// <summary>WhatsApp first (unless SMS was requested), falling back to SMS. Records the outcome without the text.</summary>
-    private async Task<bool> DeliverAsync(Guid clientId, PhoneNumber phone, string text, bool viaSms, CancellationToken ct)
+    private async Task<bool> DeliverAsync(Guid clientId, PhoneNumber phone, string text, bool viaSms, string recipientKey, CancellationToken ct)
     {
         var messageId = Guid.NewGuid();
         var sessionId = Guid.Empty;
@@ -90,6 +91,7 @@ public sealed class RequestOtpHandler(
                 sessionId = session.Id;
                 try
                 {
+                    await pacer.WaitTurnAsync(session.Id, SendPriority.Otp, ct);
                     await whatsApp.SendTextToPhoneAsync(session.Id, phone.E164, text, messageId, ct);
                     sent = true;
                 }
@@ -108,7 +110,7 @@ public sealed class RequestOtpHandler(
             catch (ProviderException ex) { error = ex.Message; }
         }
 
-        var record = Message.Record(messageId, clientId, sessionId, phone.Masked, sent, sent ? null : PiiRedactor.Redact(error), clock.GetUtcNow());
+        var record = Message.Record(messageId, clientId, sessionId, phone.Masked, sent, sent ? null : PiiRedactor.Redact(error), clock.GetUtcNow(), recipientKey);
         await messages.TryAddAsync(record, ct);
         return sent;
     }

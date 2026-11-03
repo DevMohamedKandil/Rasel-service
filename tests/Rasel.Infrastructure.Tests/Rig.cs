@@ -50,8 +50,10 @@ public sealed class Rig : IAsyncDisposable
             ["Security:OtpPepper"] = "rig-otp-pepper-0123456789-0123456789",
             ["Security:TokenSecret"] = "rig-token-secret-0123456789-0123456789",
             ["Seed:DevApiKey"] = ApiKey,
-            ["Outbox:MinDelayMs"] = "0",
-            ["Outbox:MaxDelayMs"] = "0",
+            ["Pacing:MinDelayMs"] = "0",
+            ["Pacing:MinGapMs"] = "0",
+            ["Pacing:DailyPerRecipient"] = "1000",
+            ["Pacing:MaxDelayMs"] = "0",
         };
         foreach (var (k, v) in settings ?? []) values[k] = v;
         var config = new ConfigurationBuilder().AddInMemoryCollection(values).Build();

@@ -13,7 +13,8 @@ public sealed record SendTextCommand(Guid? SessionId, string? Phone, string? Gro
 public sealed record SendTextResult(Guid MessageId, MessageStatus Status, bool Replayed = false);
 
 public sealed class SendTextHandler(
-    ISessionRepository sessions, IMessageRepository messages, IWhatsAppProvider provider, DailyLimitGuard dailyLimit, TimeProvider clock)
+    ISessionRepository sessions, IMessageRepository messages, IWhatsAppProvider provider, DailyLimitGuard dailyLimit,
+    RecipientLimitGuard recipientLimit, TimeProvider clock)
 {
     public const int MaxIdempotencyKeyLength = 128;
 
@@ -32,6 +33,7 @@ public sealed class SendTextHandler(
         var session = await ResolveSessionAsync(client.Id, cmd.SessionId, ct);
         await dailyLimit.EnsureWithinAsync(client, ct);
 
+        string? recipientKey = null;
         TargetType type;
         string display, destination;
         if (!string.IsNullOrWhiteSpace(cmd.Phone))
@@ -41,6 +43,8 @@ public sealed class SendTextHandler(
             type = TargetType.Phone;
             display = phone.Masked;
             destination = phone.E164;
+            await recipientLimit.EnsureWithinAsync(client.Id, phone.E164, ct);
+            recipientKey = recipientLimit.KeyFor(client.Id, phone.E164);
         }
         else
         {
@@ -53,7 +57,7 @@ public sealed class SendTextHandler(
             display = destination = cmd.GroupName!;
         }
 
-        var message = Message.Queue(client.Id, session.Id, type, display, destination, cmd.Text, key, key is null ? null : fingerprint, clock.GetUtcNow());
+        var message = Message.Queue(client.Id, session.Id, type, display, destination, cmd.Text, key, key is null ? null : fingerprint, clock.GetUtcNow(), recipientKey);
         if (!await messages.TryAddAsync(message, ct))
         {
             // Lost a race with a parallel request carrying the same key.
