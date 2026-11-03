@@ -93,6 +93,14 @@ $ curl -H "X-Api-Key: ..." http://127.0.0.1:5114/v1/sessions/2d88.../qr
 
 `qr` is `null` when none is available. With the **Fake** provider the value is the text `fake-qr:<id>` and **fetching it makes the session `Connected`**. With the Bridge provider it is an HTML `<img src="data:image/png;base64,...">` fragment (README); treat it as untrusted: extract only the `data:image/png` URL and never render the HTML (the admin console does exactly this). `409 session_stopped` when the session is stopped.
 
+### GET /v1/system/status and sidecar control (Managed mode)
+
+`GET /v1/system/status` returns `{"provider":"Managed","sidecar":{"state":"NeedsQr","step":null,"reason":null,"crashes":0,"autoStart":true}}`. States: `Disabled` (Fake or external Bridge), `Preparing`, `InstallingDependencies`, `Ready` (prepared, waiting for Start when AutoStart is off), `Starting`, `NeedsQr`, `Connected`, `Stopped` (stopped on purpose, never auto-restarted), `Degraded` (crashed, restarting with back-off), `Failed` (needs a human; `reason` says what to do). `/health/ready` also lists a `sidecar` check that never fails the API.
+
+`POST /v1/system/sidecar/start`, `/stop`, `/restart`: idempotent. `202` when it changes something, `200` when already in that state, `409 sidecar_not_managed` when `WhatsApp:Provider` is not Managed. Rasel has no key scopes yet, so any valid API key can call these: limit who holds keys until scopes exist.
+
+Sends while the engine is not ready fail transiently and stay queued in the outbox (retried with back-off up to `Outbox:MaxAttempts`).
+
 ### Linked number (privacy)
 
 When the session is `Connected`, `GET /v1/sessions/{id}` and `/qr` add `"linkedPhoneMasked":"+20100****880"` (first 5 and last 3 digits; `null` when unknown or not connected). The full number is never in those payloads.

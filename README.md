@@ -30,6 +30,20 @@ flowchart LR
 
 Folders: `src/` API (.NET), `sidecar/` WhatsApp bridge (Node), `admin/` admin UI (Angular), `deploy/` Docker and Windows installers, `docs/`.
 
+## Managed mode (no manual sidecar steps)
+
+`WhatsApp__Provider=Managed` makes the API prepare and run the bundled sidecar itself. It copies the sidecar to `Sidecar__DataDir` (session, node_modules, logs and a random per-install token live there), runs `npm ci` only when needed, finds or downloads Chrome, starts and supervises it (restart with back-off, stop after `Sidecar__MaxCrashes` crashes in a row, process tree killed with the API even on a hard kill). The API answers immediately; watch `GET /v1/system/status`. First start needs Node.js 18+ and internet access to the npm registry.
+
+Three modes:
+
+| Mode | Config | Who runs the sidecar |
+|---|---|---|
+| Managed | `WhatsApp__Provider=Managed` (`Sidecar__AutoStart=false` = prepare only, then `POST /v1/system/sidecar/start`) | Rasel, automatically |
+| Bridge | `WhatsApp__Provider=Bridge` + `WhatsApp__Bridge__BaseUrl` | You, by hand or Docker (see sidecar/README.md) |
+| Fake | default | Nobody; nothing real is sent |
+
+Windows one-liner: `.\deploy\install-api.ps1 -EnvFile .\api.env -Managed`. Docker: `deploy/Dockerfile.managed` (API + Node + Chromium in one image).
+
 ## Quickstart (5 commands)
 
 ```bash

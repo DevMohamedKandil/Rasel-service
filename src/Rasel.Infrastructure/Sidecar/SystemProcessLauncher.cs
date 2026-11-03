@@ -52,6 +52,7 @@ public sealed class SystemProcessLauncher(ILogger<SystemProcessLauncher> logger)
         var exited = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         process.Exited += (_, _) => exited.TrySetResult(SafeExit(process));
         process.Start();
+        WindowsJob.Assign(process);
         Pump(process.StandardOutput, spec.LogPath, null);
         Pump(process.StandardError, spec.LogPath, null);
         return new Managed(process, exited);
@@ -67,6 +68,7 @@ public sealed class SystemProcessLauncher(ILogger<SystemProcessLauncher> logger)
         {
             process = new Process { StartInfo = Build(spec), EnableRaisingEvents = true };
             process.Start();
+            WindowsJob.Assign(process);
         }
         catch (System.ComponentModel.Win32Exception ex)
         {

@@ -116,7 +116,7 @@ public sealed class SidecarSupervisor(
         if (copyError is not null) { Set(SidecarState.Failed, reason: copyError); return false; }
 
         Set(SidecarState.Preparing, "Checking Node.js");
-        var node = await launcher.RunAsync(new ProcessSpec("node", ["--version"], files.AppDir), TimeSpan.FromSeconds(20), ct);
+        var node = await launcher.RunAsync(new ProcessSpec(SidecarFiles.NodeExecutable, ["--version"], files.AppDir), TimeSpan.FromSeconds(20), ct);
         if (node.ExitCode != 0 || !SidecarFiles.TryParseNodeMajor(node.Output, out var major))
         {
             Set(SidecarState.Failed, reason: $"Node.js {o.MinNodeMajor} or newer was not found. Install Node.js (LTS) on this server and restart Rasel.");
@@ -131,7 +131,7 @@ public sealed class SidecarSupervisor(
         if (files.NeedsInstall())
         {
             Set(SidecarState.InstallingDependencies, "Installing WhatsApp engine dependencies (1-3 minutes the first time)");
-            var npm = await launcher.RunAsync(new ProcessSpec(SidecarFiles.NpmExecutable, ["ci", "--no-audit", "--no-fund"], files.AppDir, LogPath: files.InstallLogPath),
+            var npm = await launcher.RunAsync(new ProcessSpec(SidecarFiles.NpmExecutable, ["ci", "--no-audit", "--no-fund"], files.AppDir, files.ToolEnv, files.InstallLogPath),
                 TimeSpan.FromMinutes(o.InstallTimeoutMinutes), ct);
             if (npm.ExitCode != 0)
             {
@@ -142,12 +142,12 @@ public sealed class SidecarSupervisor(
         }
 
         Set(SidecarState.Preparing, "Checking Chrome");
-        var chrome = await launcher.RunAsync(new ProcessSpec("node", ["-e", "console.log(require('puppeteer').executablePath())"], files.AppDir), TimeSpan.FromSeconds(30), ct);
+        var chrome = await launcher.RunAsync(new ProcessSpec(SidecarFiles.NodeExecutable, ["-e", "console.log(require('puppeteer').executablePath())"], files.AppDir, files.ToolEnv), TimeSpan.FromSeconds(30), ct);
         var hasChrome = chrome.ExitCode == 0 && (File.Exists(chrome.Output.Trim()) || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PUPPETEER_EXECUTABLE_PATH")));
         if (!hasChrome)
         {
             Set(SidecarState.InstallingDependencies, "Downloading Chrome for the WhatsApp engine");
-            var install = await launcher.RunAsync(new ProcessSpec(SidecarFiles.NpxExecutable, ["puppeteer", "browsers", "install", "chrome"], files.AppDir, LogPath: files.InstallLogPath),
+            var install = await launcher.RunAsync(new ProcessSpec(SidecarFiles.NpxExecutable, ["puppeteer", "browsers", "install", "chrome"], files.AppDir, files.ToolEnv, files.InstallLogPath),
                 TimeSpan.FromMinutes(o.InstallTimeoutMinutes), ct);
             if (install.ExitCode != 0)
             {
@@ -228,8 +228,8 @@ public sealed class SidecarSupervisor(
         var port = o.Port != 0 ? o.Port : files.FreePort();
         var token = files.GetOrCreateToken();
         Set(SidecarState.Starting, "Starting the WhatsApp engine", crashes: crashesSoFar);
-        var proc = launcher.Start(new ProcessSpec("node", ["src/server.js"], files.AppDir,
-            new Dictionary<string, string> { ["PORT"] = port.ToString(), ["HOST"] = "127.0.0.1", ["SESSION_DIR"] = files.SessionDir, ["SHARED_TOKEN"] = token },
+        var proc = launcher.Start(new ProcessSpec(SidecarFiles.NodeExecutable, ["src/server.js"], files.AppDir,
+            new Dictionary<string, string>(files.ToolEnv) { ["PORT"] = port.ToString(), ["HOST"] = "127.0.0.1", ["SESSION_DIR"] = files.SessionDir, ["SHARED_TOKEN"] = token },
             files.SidecarLogPath));
         _proc = proc;
         var started = DateTimeOffset.UtcNow;

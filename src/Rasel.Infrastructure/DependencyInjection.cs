@@ -37,8 +37,25 @@ public static class DependencyInjection
 
         // Fake stays the default; the real sidecar is opt-in via WhatsApp:Provider=WebJs.
         var provider = config["WhatsApp:Provider"] ?? WhatsAppOptions.FakeProvider;
-        if (provider.Equals(WhatsAppOptions.BridgeProvider, StringComparison.OrdinalIgnoreCase))
+        if (provider.Equals(WhatsAppOptions.ManagedProvider, StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddValidatedOptions<SidecarOptions, SidecarOptionsValidator>(config, "Sidecar");
+            services.AddHttpClient("sidecar-probe");
+            services.AddSingleton<IProcessLauncher, SystemProcessLauncher>();
+            services.AddSingleton<ISidecarProbe, HttpSidecarProbe>();
+            services.AddSingleton<SidecarFiles>();
+            services.AddSingleton<SidecarSupervisor>();
+            services.AddHostedService(sp => sp.GetRequiredService<SidecarSupervisor>());
+            services.AddSingleton<ISidecarControl>(sp => sp.GetRequiredService<SidecarSupervisor>());
+            services.AddSingleton<IBridgeEndpoint>(sp => new SupervisorBridgeEndpoint(sp.GetRequiredService<SidecarSupervisor>()));
             services.AddBridgeProvider();
+            services.AddHealthChecks().AddCheck<SidecarHealthCheck>("sidecar", failureStatus: HealthStatus.Degraded, tags: [ReadyTag]);
+        }
+        else if (provider.Equals(WhatsAppOptions.BridgeProvider, StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<IBridgeEndpoint, OptionsBridgeEndpoint>();
+            services.AddBridgeProvider();
+        }
         else if (provider.Equals(WhatsAppOptions.WebJsProvider, StringComparison.OrdinalIgnoreCase))
             services.AddWebJsProvider();
         else

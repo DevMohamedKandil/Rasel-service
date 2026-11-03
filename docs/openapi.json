@@ -215,6 +215,54 @@
           }
         }
       }
+    },
+    "/v1/system/status": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v1/system/sidecar/start": {
+      "post": {
+        "tags": [
+          "System"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v1/system/sidecar/stop": {
+      "post": {
+        "tags": [
+          "System"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v1/system/sidecar/restart": {
+      "post": {
+        "tags": [
+          "System"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -311,6 +359,9 @@
     },
     {
       "name": "Sessions"
+    },
+    {
+      "name": "System"
     }
   ]
 }

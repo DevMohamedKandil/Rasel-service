@@ -80,6 +80,7 @@ var v1 = app.MapVersion(ApiVersions.V1);
 v1.MapSessionEndpoints();
 v1.MapMessageEndpoints();
 v1.MapOtpEndpoints();
+v1.MapSystemEndpoints();
 
 app.Run();
 

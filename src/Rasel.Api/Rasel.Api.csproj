@@ -10,7 +10,11 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.3.1" />
   </ItemGroup>
 
-  <PropertyGroup>
-  </PropertyGroup>
+  <!-- The WhatsApp sidecar (sources + lockfile + patches, never node_modules or sessions) ships with the API; Managed mode copies it to Sidecar:DataDir. -->
+  <ItemGroup>
+    <None Include="../../sidecar/package.json;../../sidecar/package-lock.json" Link="sidecar/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="../../sidecar/src/**" Link="sidecar/src/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="../../sidecar/patches/**" Link="sidecar/patches/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 
 </Project>

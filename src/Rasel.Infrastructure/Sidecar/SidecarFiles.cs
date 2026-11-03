@@ -9,13 +9,33 @@ namespace Rasel.Infrastructure.Sidecar;
 /// <summary>File-system side of the supervisor: data folders, bundled-source copy, dependency hash, token, free port, single-instance lock.</summary>
 public sealed partial class SidecarFiles(IOptions<SidecarOptions> options)
 {
-    public static string NpmExecutable => OperatingSystem.IsWindows() ? "npm.cmd" : "npm";
-    public static string NpxExecutable => OperatingSystem.IsWindows() ? "npx.cmd" : "npx";
+    public static string NpmExecutable => Resolve(OperatingSystem.IsWindows() ? "npm.cmd" : "npm");
+    public static string NpxExecutable => Resolve(OperatingSystem.IsWindows() ? "npx.cmd" : "npx");
+    public static string NodeExecutable => Resolve(OperatingSystem.IsWindows() ? "node.exe" : "node");
+
+    /// <summary>Full path of a tool found on PATH. A bare name is resolved relative to the child's working directory by npm.cmd on Windows, which breaks it, so always pass the full path.</summary>
+    public static string Resolve(string file)
+    {
+        foreach (var dir in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        {
+            try { var candidate = Path.Combine(dir.Trim('"'), file); if (File.Exists(candidate)) return candidate; }
+            catch (ArgumentException) { }
+        }
+        return file;
+    }
 
     private string Root => string.IsNullOrWhiteSpace(options.Value.DataDir)
         ? Path.Combine(AppContext.BaseDirectory, "sidecar-data") : Path.GetFullPath(options.Value.DataDir);
     private string Source => string.IsNullOrWhiteSpace(options.Value.SourceDir)
         ? Path.Combine(AppContext.BaseDirectory, "sidecar") : Path.GetFullPath(options.Value.SourceDir);
+
+    /// <summary>Caches live in the data folder so a service account without a user profile (LocalService) still works.</summary>
+    public IReadOnlyDictionary<string, string> ToolEnv => new Dictionary<string, string>
+    {
+        ["npm_config_cache"] = Path.Combine(Root, "npm-cache"),
+        ["PUPPETEER_CACHE_DIR"] = Path.Combine(Root, "browsers"),
+        ["HOME"] = Root,
+    };
 
     public string AppDir => Path.Combine(Root, "app");
     public string SessionDir => Path.Combine(Root, "session");

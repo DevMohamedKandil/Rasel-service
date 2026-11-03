@@ -11,6 +11,7 @@ param(
     [string]$InstallDir  = 'C:\Rasel\api',
     [string]$DataDir     = 'C:\Rasel\data',
     [int]$Port           = 5114,
+    [switch]$Managed,   # the API prepares and supervises the WhatsApp sidecar itself (needs Node.js 18+ on this machine)
     [Parameter(Mandatory)][string]$EnvFile
 )
 $ErrorActionPreference = 'Stop'
@@ -22,6 +23,12 @@ foreach ($required in 'Security__OtpPepper', 'Security__TokenSecret', 'Seed__Dev
 $vars['ASPNETCORE_ENVIRONMENT'] = 'Production'
 $vars['ASPNETCORE_URLS'] = "http://127.0.0.1:$Port"
 $vars['Database__Path'] = Join-Path $DataDir 'rasel.db'
+if ($Managed) {
+    if (-not (Get-Command node -ErrorAction SilentlyContinue)) { throw 'Managed mode needs Node.js 18+ installed (https://nodejs.org).' }
+    $vars['WhatsApp__Provider'] = 'Managed'
+    $vars['Sidecar__DataDir'] = Join-Path $DataDir 'sidecar'
+    $vars['PATH'] = $env:PATH   # LocalService has a minimal PATH; it must find node and npm
+}
 
 if (Get-Service $ServiceName -ErrorAction SilentlyContinue) { & sc.exe stop $ServiceName | Out-Null; Start-Sleep 3 }
 dotnet publish "$repo\src\Rasel.Api\Rasel.Api.csproj" -c Release -o $InstallDir

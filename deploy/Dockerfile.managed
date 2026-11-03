@@ -1,0 +1,23 @@
+# One image: API + Node + Chromium; the API prepares and supervises the bundled sidecar (WhatsApp__Provider=Managed).
+# Build context: repository root.  docker build -f deploy/Dockerfile.managed -t rasel-managed .
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+COPY Directory.Build.props Rasel.sln ./
+COPY src ./src
+COPY sidecar ./sidecar
+RUN dotnet publish src/Rasel.Api/Rasel.Api.csproj -c Release -o /app --no-self-contained
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates chromium fonts-noto-core fonts-noto-color-emoji \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=build /app .
+ENV ASPNETCORE_URLS=http://+:8080 ASPNETCORE_ENVIRONMENT=Production Database__Path=/data/rasel.db \
+    WhatsApp__Provider=Managed Sidecar__DataDir=/data/sidecar \
+    PUPPETEER_SKIP_DOWNLOAD=1 PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium CHROMIUM_NO_SANDBOX=1
+RUN mkdir -p /data && chown -R $APP_UID /data
+VOLUME /data
+USER $APP_UID
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "Rasel.Api.dll"]
