@@ -66,6 +66,7 @@ export class App {
   protected readonly nav = [
     { path: '/dashboard', key: 'nav.dashboard', icon: 'home' },
     { path: '/sessions', key: 'nav.sessions', icon: 'layers' },
+    { path: '/send', key: 'nav.send', icon: 'send' },
     { path: '/messages', key: 'nav.messages', icon: 'chat' },
     { path: '/health', key: 'nav.health', icon: 'pulse' },
     { path: '/help', key: 'nav.help', icon: 'help' },

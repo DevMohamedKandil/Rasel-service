@@ -9,6 +9,8 @@ export interface MessageStatusDto {
   id: string; status: string; attempts: number; createdAt: string;
   sentAt: string | null; nextAttemptAt: string | null; lastErrorCode: string | null;
 }
+export interface SendRequest { sessionId?: string; phone?: string; groupName?: string; text: string; }
+export interface SendResponse { messageId: string; status: string; replayed: boolean; }
 export interface EngineSessionDto { sessionId: string; state: string; step: string | null; reason: string | null; crashes: number; }
 export interface SystemStatusDto {
   provider: string; scope?: string;
@@ -53,6 +55,10 @@ export class ApiService {
   logoutSession(id: string): Observable<SessionDto> { return this.http.post<SessionDto>(this.url(`/v1/sessions/${id}/logout`), null, { headers: this.headers() }); }
   /** Removes the session from Rasel; purge=true also deletes its stored WhatsApp data (Admin key). */
   deleteSession(id: string, purge: boolean): Observable<void> { return this.http.delete<void>(this.url(`/v1/sessions/${id}${purge ? '?purge=true' : ''}`), { headers: this.headers() }); }
+  /** Queues a text message (202). Pass a fresh Idempotency-Key per click. */
+  sendMessage(body: SendRequest, idempotencyKey: string): Observable<SendResponse> {
+    return this.http.post<SendResponse>(this.url('/v1/messages'), body, { headers: { ...this.headers(), 'Idempotency-Key': idempotencyKey } });
+  }
   health(): Observable<HealthDto> { return this.http.get<HealthDto>(this.url('/health/ready')); }
 }
 
