@@ -43,6 +43,7 @@ describe('SessionsPage controls', () => {
       expect(btn(a).disabled, a).toBe(true);
       expect(btn(a).title).toBe(i18n.t('ses.adminOnly'));
     }
+    expect(el.querySelector('[data-testid="std-note"]')).not.toBeNull();
     btn('delete').click();
     fixture.detectChanges();
     expect(el.querySelector('[data-testid="confirm-dialog"]')).toBeNull();

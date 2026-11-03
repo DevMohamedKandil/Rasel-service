@@ -102,6 +102,31 @@ The new card shows its **state** (1) and a **Show QR code** button (2).
 
 > **Not verified on real WhatsApp.** In the Fake provider a session becomes Connected the first time its QR is opened. With a real bridge it becomes Connected only after you scan the code.
 
+### Adding a number and controlling each number
+
+![Session controls](images/11-session-controls-en.png)
+
+1. **Add number**: type a name and press the button. A new session is created and its QR code opens at once so you can scan it. If you have reached the maximum number of numbers you see a friendly message; delete a number you do not use or ask for a higher limit.
+2. **Engine state**: a plain-language line (for example "Engine is starting" or "Engine is running and waiting for a QR scan"). While the engine is getting ready this line refreshes by itself every few seconds. An Admin key also sees the reason when something fails.
+3. **Session state** of each number (see the table above).
+4. **Start / Stop / Restart**: Start runs the number's engine; Stop pauses sending (queued messages wait and are not lost, the number stays linked); Restart stops and starts it again.
+5. **Disconnect number**: unlinks the number from Rasel (it is logged out of WhatsApp here). Nothing is sent from it until you scan a new QR code. It works only while the number is connected.
+6. **Delete**: removes the session from Rasel. Tick **Also delete the session data** to erase its saved login files too.
+
+Every button has a **?** next to it that explains it in plain words. Each of Start, Stop, Restart, Disconnect and Delete asks you to confirm first and says what will happen:
+
+![Confirm disconnect](images/12-confirm-disconnect-en.png)
+
+![Confirm delete](images/13-confirm-delete-en.png)
+
+**Standard keys.** These controls need an **Admin** key. With a Standard key the buttons are turned off, a note explains why, and hovering a button shows the same explanation. This is only a convenience: the server refuses these actions for a Standard key anyway.
+
+![Standard key view](images/14-standard-key-en.png)
+
+When something cannot be done you get a short message instead of a technical error: "needs an Admin key" (403), "not possible in the current state" or "maximum number of numbers reached" (409), "the engine is not ready, try again" (503).
+
+> With the Fake provider or an external bridge, Rasel does not run the engine itself, so Start, Stop and Restart answer "the engine is not managed by Rasel". Disconnect number needs a real session engine (Managed mode) or the Rasel sidecar.
+
 ### Linking several numbers (multi-number)
 When Rasel runs the WhatsApp engine itself (Managed mode), every session is its own number with its own engine. Create one session per number, open each session's QR and scan it with that phone: the two QR codes are different. The status page shows one line per session. Things to know:
 

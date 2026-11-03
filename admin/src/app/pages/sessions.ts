@@ -29,6 +29,9 @@ export type SessionAction = 'start' | 'stop' | 'restart' | 'logout' | 'delete';
         <button type="submit" class="btn" [disabled]="creating()"><app-icon name="plus" />{{ i18n.t('ses.create') }}</button>
         <app-hint key="hint.addNumber" />
       </form>
+      @if (engine.status() && !engine.isAdmin()) {
+        <div class="notice" style="margin: var(--s-4) 0" data-testid="std-note"><app-icon name="lock" /><span>{{ i18n.t('ses.stdNote') }}</span></div>
+      }
       @if (engine.aggregate(); as agg) {
         <div class="notice" style="margin: var(--s-4) 0" data-testid="engine-banner" role="status">
           <app-icon name="pulse" /><span><b>{{ i18n.t('ses.engine') }}:</b> {{ i18n.t('eng.' + agg) }}
@@ -42,7 +45,7 @@ export type SessionAction = 'start' | 'stop' | 'restart' | 'logout' | 'delete';
       @if (store.sessions().length === 0 && !creating()) {
         <div class="empty"><app-illustration kind="phone" /><h3>{{ i18n.t('ses.empty') }}</h3><p>{{ i18n.t('ses.emptyd') }}</p></div>
       }
-      <div class="grid cols-2">
+      <div class="grid sess-grid">
         @for (s of store.sessions(); track s.id) {
           <div class="card sess">
             <div class="sess-head">
@@ -129,8 +132,12 @@ export type SessionAction = 'start' | 'stop' | 'restart' | 'logout' | 'delete';
   `,
   styles: `
     .engine-line { margin: 0 0 var(--s-2); }
-    .acts { margin-top: var(--s-2); gap: var(--s-2); }
-    .act { display: inline-flex; align-items: center; }
+    .sess-grid { grid-template-columns: repeat(auto-fit, minmax(min(26rem, 100%), 1fr)); }
+    .acts { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: var(--s-2); margin-top: var(--s-2); }
+    .act { display: flex; align-items: center; gap: .15rem; }
+    .act .btn { flex: 1; justify-content: center; white-space: nowrap; padding-inline: .6rem; }
+    .qr-panel { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; }
+    .qr-side ol { text-align: start; }
     .btn.danger-ghost:not(:disabled) { color: var(--c-bad); }
   `,
 })

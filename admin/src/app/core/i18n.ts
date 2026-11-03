@@ -91,6 +91,7 @@ const D: Record<string, { ar: string; en: string }> = {
   'ses.needConnected': { ar: 'لا يوجد رقم متصل لفصله الآن.', en: 'There is no connected number to disconnect right now.' },
   'ses.engine': { ar: 'حالة المحرك', en: 'Engine state' },
   'ses.engineDetail': { ar: 'التفاصيل', en: 'Details' },
+  'ses.stdNote': { ar: 'مفتاحك الحالي عادي، لذلك أزرار التشغيل والإيقاف والفصل والحذف معطّلة. استخدم مفتاح مدير لتفعيلها.', en: 'Your current key is Standard, so the start, stop, disconnect and delete buttons are turned off. Use an Admin key to enable them.' },
   'dlg.cancel': { ar: 'إلغاء', en: 'Cancel' },
   'dlg.start.title': { ar: 'تشغيل هذه الجلسة؟', en: 'Start this session?' },
   'dlg.start.body': { ar: 'سيبدأ محرك واتساب الخاص بهذه الجلسة. إن كان الرقم مربوطاً سيتصل تلقائياً، وإلا ستحتاج لمسح رمز QR.', en: 'The WhatsApp engine of this session will start. If the number is already linked it reconnects by itself, otherwise you will need to scan a QR code.' },
