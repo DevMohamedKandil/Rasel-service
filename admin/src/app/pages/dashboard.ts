@@ -1,5 +1,6 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { EngineService } from '../core/engine.service';
 import { HealthService } from '../core/health.service';
 import { I18n } from '../core/i18n';
 import { SessionStore } from '../core/session.store';
@@ -32,6 +33,16 @@ import { Icon } from '../ui/icon';
         </div>
       </div>
 
+      <div class="card stat" style="margin-top: var(--s-4)" data-testid="dash-engine">
+        <span class="label"><span class="ico-chip" [class]="engineChip()"><app-icon name="layers" /></span>{{ i18n.t('dash.engine') }}
+          @if (engine.aggregate(); as agg) { <app-hint [key]="'hint.eng.' + agg" /> } @else { <app-hint key="hint.engine" /> }</span>
+        @if (engine.aggregate(); as agg) {
+          <span class="value sm">{{ i18n.t('eng.' + agg) }} @if (engine.transitional()) { <span class="dot ok"></span> }</span>
+          @if (engine.status()?.sidecar?.reason || engine.status()?.sidecar?.step) { <span class="sub">{{ engine.status()?.sidecar?.reason || engine.status()?.sidecar?.step }}</span> }
+        } @else if (engine.failed()) { <span class="value sm">-</span> }
+        @else { <span class="skel" style="height: 2.2rem; width: 50%"></span> }
+      </div>
+
       <h2 class="section-title">{{ i18n.t('dash.quick') }}</h2>
       <div class="grid cols-3">
         <a class="card row" routerLink="/sessions"><span class="ico-chip"><app-icon name="plus" /></span><span><b>{{ i18n.t('dash.q1') }}</b><br><span class="muted" style="font-size: var(--t-sm)">{{ i18n.t('dash.q1d') }}</span></span></a>
@@ -48,7 +59,11 @@ import { Icon } from '../ui/icon';
     </div>
   `,
 })
-export class DashboardPage {
+export class DashboardPage implements OnInit, OnDestroy {
+  protected readonly engine = inject(EngineService);
+  ngOnInit() { this.engine.start(); }
+  ngOnDestroy() { this.engine.stop(); }
+  protected engineChip() { const s = this.engine.aggregate(); return s === 'Connected' ? 'ok' : s === 'Failed' || s === 'Degraded' ? 'bad' : 'warn'; }
   protected readonly i18n = inject(I18n);
   protected readonly health = inject(HealthService);
   protected readonly store = inject(SessionStore);

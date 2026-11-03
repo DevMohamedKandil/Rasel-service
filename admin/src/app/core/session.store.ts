@@ -7,5 +7,6 @@ export class SessionStore {
   readonly sessions = signal<SessionDto[]>([]);
   add(s: SessionDto) { this.sessions.update((l) => [s, ...l.filter((x) => x.id !== s.id)]); }
   update(id: string, patch: Partial<SessionDto>) { this.sessions.update((l) => l.map((x) => (x.id === id ? { ...x, ...patch } : x))); }
+  remove(id: string) { this.sessions.update((l) => l.filter((x) => x.id !== id)); }
   clear() { this.sessions.set([]); }
 }
