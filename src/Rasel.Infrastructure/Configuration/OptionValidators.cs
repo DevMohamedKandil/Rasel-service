@@ -77,8 +77,8 @@ public sealed class WhatsAppOptionsValidator : IValidateOptions<WhatsAppOptions>
         var errors = new List<string>();
         if (!Uri.TryCreate(b.BaseUrl, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
             errors.Add("WhatsApp:Bridge:BaseUrl must be an absolute http(s) URL.");
-        else if (!uri.IsLoopback && uri.Scheme == "http")
-            errors.Add("WhatsApp:Bridge:BaseUrl must be a loopback address or https (the bridge has no authentication).");
+        else if (!uri.IsLoopback && uri.Scheme == "http" && b.SharedToken.Length < 16)
+            errors.Add("WhatsApp:Bridge:BaseUrl must be a loopback address or https, or plain http with a WhatsApp:Bridge:SharedToken of at least 16 characters.");
         if (b.AttemptTimeoutSeconds is < 1 or > 120) errors.Add("WhatsApp:Bridge:AttemptTimeoutSeconds must be between 1 and 120.");
         if (b.ReadRetries is < 0 or > 5) errors.Add("WhatsApp:Bridge:ReadRetries must be between 0 and 5.");
         if (b.BreakerMinimumThroughput < 2) errors.Add("WhatsApp:Bridge:BreakerMinimumThroughput must be at least 2.");

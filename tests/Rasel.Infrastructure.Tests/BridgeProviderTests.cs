@@ -27,13 +27,14 @@ public class BridgeProviderTests
 
     private static HttpResponseMessage Text(HttpStatusCode code, string text) => new(code) { Content = new StringContent(text, Encoding.UTF8, "text/html") };
 
-    private static IWhatsAppProvider Build(Stub stub)
+    private static IWhatsAppProvider Build(Stub stub, string token = "")
     {
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["WhatsApp:Provider"] = "Bridge",
             ["WhatsApp:Bridge:BaseUrl"] = "http://127.0.0.1:5001",
             ["WhatsApp:Bridge:ReadRetries"] = "0",
+            ["WhatsApp:Bridge:SharedToken"] = token,
         }).Build();
         var services = new ServiceCollection();
         services.AddLogging();
@@ -41,6 +42,26 @@ public class BridgeProviderTests
         services.AddBridgeProvider();
         services.ConfigureAll<HttpClientFactoryOptions>(o => o.HttpMessageHandlerBuilderActions.Add(b => b.PrimaryHandler = stub));
         return services.BuildServiceProvider().GetRequiredService<IWhatsAppProvider>();
+    }
+
+    [Fact]
+    public async Task Shared_token_is_sent_as_header_only_when_configured()
+    {
+        var seen = new List<string?>();
+        var stub = new Stub((r, _) => { seen.Add(r.Headers.TryGetValues("X-Bridge-Token", out var v) ? v.Single() : null); return Text(HttpStatusCode.OK, "SendDone"); });
+        await Build(stub, "0123456789abcdef").SendTextToGroupAsync(Guid.NewGuid(), "G", "hi", Guid.NewGuid(), default);
+        await Build(stub).SendTextToGroupAsync(Guid.NewGuid(), "G", "hi", Guid.NewGuid(), default);
+        Assert.Equal(["0123456789abcdef", null], seen);
+    }
+
+    [Fact]
+    public void Plain_http_to_a_non_loopback_host_needs_a_token()
+    {
+        var v = new WhatsAppOptionsValidator();
+        WhatsAppOptions Make(string token) => new() { Provider = "Bridge", Bridge = { BaseUrl = "http://sidecar:5001", SharedToken = token } };
+        Assert.True(v.Validate(null, Make("")).Failed);
+        Assert.True(v.Validate(null, Make("short")).Failed);
+        Assert.True(v.Validate(null, Make("0123456789abcdef")).Succeeded);
     }
 
     [Fact]

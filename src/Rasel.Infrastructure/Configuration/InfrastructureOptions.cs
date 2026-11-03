@@ -43,6 +43,9 @@ public sealed class BridgeOptions
     /// <summary>Address of the whatsapp-web.js bridge, e.g. http://127.0.0.1:5001 (the bridge has no authentication: keep it loopback/private).</summary>
     public string BaseUrl { get; set; } = "";
 
+    /// <summary>Optional shared secret sent as header X-Bridge-Token (the sidecar's SHARED_TOKEN). Required (16+ chars) for plain http to a non-loopback host such as a container network name.</summary>
+    public string SharedToken { get; set; } = "";
+
     /// <summary>A real send drives a headless browser, so this is more generous than for the sidecar.</summary>
     public int AttemptTimeoutSeconds { get; set; } = 30;
 

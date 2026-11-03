@@ -74,6 +74,7 @@ public sealed class BridgeWhatsAppProvider(HttpClient http, IOptions<WhatsAppOpt
     {
         using var request = new HttpRequestMessage(method, Base + path);
         if (body is not null) request.Content = JsonContent.Create(body);
+        if (options.Value.Bridge.SharedToken.Length > 0) request.Headers.Add("X-Bridge-Token", options.Value.Bridge.SharedToken);
 
         HttpResponseMessage response;
         try
