@@ -40,7 +40,7 @@ curl -H "X-Api-Key: $SEED_API_KEY" -H "Content-Type: application/json" -d '{"nam
 cd admin && npm install --legacy-peer-deps && npm start # 5. admin UI on :4200 (set CORS_ORIGIN=http://localhost:4200)
 ```
 
-Without Docker: `dotnet run --project src/Rasel.Api` (Fake provider). Windows services: [deploy/README.md](deploy/README.md). Sidecar: [sidecar/README.md](sidecar/README.md). Admin: [admin/README.md](admin/README.md). Illustrated user guide: [English](docs/USER-GUIDE.en.md) | [العربية](docs/USER-GUIDE.ar.md).
+Without Docker: `dotnet run --project src/Rasel.Api` (Fake provider). Windows services: [deploy/README.md](deploy/README.md). Sidecar: [sidecar/README.md](sidecar/README.md). Admin: [admin/README.md](admin/README.md). API reference: [docs/API.md](docs/API.md) ([العربية](docs/API.ar.md), [openapi.json](docs/openapi.json)). Integration guide: [docs/INTEGRATION.md](docs/INTEGRATION.md) ([العربية](docs/INTEGRATION.ar.md), [examples](docs/examples)). Illustrated user guide: [English](docs/USER-GUIDE.en.md) | [العربية](docs/USER-GUIDE.ar.md).
 
 Dependency rule: `Domain <- Application <- Infrastructure`, `Api` composes both. Details and decisions: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). OTP threat model: [docs/SECURITY.md](docs/SECURITY.md). Audit of the original prototype: [docs/AUDIT.md](docs/AUDIT.md).
 
