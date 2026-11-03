@@ -6,6 +6,93 @@
     "version": "v1"
   },
   "paths": {
+    "/v1/keys": {
+      "get": {
+        "tags": [
+          "Keys"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Keys"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateKeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v1/keys/{id}/revoke": {
+      "post": {
+        "tags": [
+          "Keys"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v1/keys/{id}/rotate": {
+      "post": {
+        "tags": [
+          "Keys"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RotateKeyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/v1/messages": {
       "post": {
         "tags": [
@@ -267,6 +354,31 @@
   },
   "components": {
     "schemas": {
+      "ApiKeyScope": {
+        "enum": [
+          "Standard",
+          "Admin"
+        ],
+        "type": "string"
+      },
+      "CreateKeyRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "scope": {
+            "$ref": "#/components/schemas/ApiKeyScope"
+          },
+          "dailyMessageLimit": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "CreateSessionRequest": {
         "type": "object",
         "properties": {
@@ -294,6 +406,17 @@
           },
           "language": {
             "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "RotateKeyRequest": {
+        "type": "object",
+        "properties": {
+          "graceSeconds": {
+            "type": "integer",
+            "format": "int32",
             "nullable": true
           }
         },
@@ -351,6 +474,9 @@
     }
   ],
   "tags": [
+    {
+      "name": "Keys"
+    },
     {
       "name": "Messages"
     },

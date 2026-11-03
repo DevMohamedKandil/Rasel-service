@@ -9,6 +9,7 @@ using Rasel.Infrastructure.Configuration;
 using Rasel.Application.Common;
 using Rasel.Application.Ports;
 using Rasel.Domain.Entities;
+using Rasel.Domain.Enums;
 
 namespace Rasel.Infrastructure.Persistence;
 
@@ -41,7 +42,7 @@ public static class DatabaseInitializer
         if (!string.IsNullOrWhiteSpace(configured) && configured.Length < 16 && !env.IsDevelopment())
             throw new InvalidOperationException("Seed:DevApiKey must be at least 16 characters outside Development.");
         var limit = config.GetValue("Seed:DevDailyMessageLimit", 1000);
-        await clients.AddAsync(ApiClient.Create("dev", ApiKeyHasher.Hash(key), limit), ct);
+        await clients.AddAsync(ApiClient.Create("dev", ApiKeyHasher.Hash(key), limit, scope.ServiceProvider.GetRequiredService<TimeProvider>().GetUtcNow(), ApiKeyScope.Admin), ct);
 
         if (!string.IsNullOrWhiteSpace(configured))
             logger.LogInformation("Seeded dev client with the API key from configuration (Seed:DevApiKey).");

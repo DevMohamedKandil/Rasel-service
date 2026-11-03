@@ -36,6 +36,13 @@ public interface IApiClientRepository
     Task<ApiClient?> FindByKeyHashAsync(string apiKeyHash, CancellationToken ct);
     Task<bool> AnyAsync(CancellationToken ct);
     Task AddAsync(ApiClient client, CancellationToken ct);
+    Task<ApiClient?> GetAsync(Guid id, CancellationToken ct);
+    Task<IReadOnlyList<ApiClient>> ListAsync(CancellationToken ct);
+    /// <summary>Usable Admin keys at <paramref name="now"/>.</summary>
+    Task<int> CountUsableAdminsAsync(DateTimeOffset now, CancellationToken ct);
+    Task SaveAsync(ApiClient client, CancellationToken ct);
+    /// <summary>Cheap, best-effort LastUsedAt write (only when the stored value is older than <paramref name="olderThan"/>).</summary>
+    Task TouchAsync(Guid id, DateTimeOffset now, DateTimeOffset olderThan, CancellationToken ct);
 }
 
 public interface ISessionRepository

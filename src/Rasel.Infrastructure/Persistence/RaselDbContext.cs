@@ -25,6 +25,7 @@ public sealed class RaselDbContext(DbContextOptions<RaselDbContext> options) : D
             e.Property(c => c.Name).HasMaxLength(100);
             e.Property(c => c.ApiKeyHash).HasMaxLength(64);
             e.HasIndex(c => c.ApiKeyHash).IsUnique();
+            e.Property(c => c.Scope).HasConversion<int>();
         });
 
         model.Entity<Session>().Property(s => s.Name).HasMaxLength(100);

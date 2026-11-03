@@ -32,6 +32,7 @@ public static class DependencyInjection
         services.AddScoped<GetSessionQrHandler>();
         services.AddScoped<GetLinkedNumberHandler>();
         services.AddScoped<StopSessionHandler>();
+        services.AddScoped<KeyManagementHandler>();
         services.AddScoped<SendTextHandler>();
         services.AddScoped<RequestOtpHandler>();
         services.AddScoped<VerifyOtpHandler>();

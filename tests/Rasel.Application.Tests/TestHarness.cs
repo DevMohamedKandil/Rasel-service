@@ -108,7 +108,7 @@ public sealed class Harness
 
     public Harness(int dailyLimit = 100)
     {
-        Client = ApiClient.Create("test", "hash", dailyLimit);
+        Client = ApiClient.Create("test", "hash", dailyLimit, DateTimeOffset.UtcNow);
         Tokens = new HmacTokenIssuer("secret-secret-secret-secret-secret-1", Clock);
         Limiter = new SlidingWindowRateLimiter(Clock);
     }

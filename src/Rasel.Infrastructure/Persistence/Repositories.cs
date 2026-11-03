@@ -52,6 +52,24 @@ public sealed class ApiClientRepository(RaselDbContext db) : IApiClientRepositor
         db.ApiClients.Add(client);
         await db.SaveChangesAsync(ct);
     }
+
+    public Task<ApiClient?> GetAsync(Guid id, CancellationToken ct) => db.ApiClients.FirstOrDefaultAsync(c => c.Id == id, ct);
+
+    public async Task<IReadOnlyList<ApiClient>> ListAsync(CancellationToken ct) =>
+        (await db.ApiClients.AsNoTracking().ToListAsync(ct)).OrderBy(c => c.CreatedAt).ToList(); // tiny table; order client-side
+
+    public async Task<int> CountUsableAdminsAsync(DateTimeOffset now, CancellationToken ct) =>
+        (await db.ApiClients.AsNoTracking().Where(c => c.Active && c.Scope == ApiKeyScope.Admin).ToListAsync(ct)).Count(c => c.IsUsable(now));
+
+    public Task SaveAsync(ApiClient client, CancellationToken ct) => db.SaveChangesAsync(ct);
+
+    public async Task TouchAsync(Guid id, DateTimeOffset now, DateTimeOffset olderThan, CancellationToken ct)
+    {
+        var c = await db.ApiClients.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (c is null || (c.LastUsedAt is { } last && last >= olderThan)) return;
+        c.MarkUsed(now);
+        await db.SaveChangesAsync(ct);
+    }
 }
 
 public sealed class SessionRepository(RaselDbContext db) : ISessionRepository

@@ -15,6 +15,7 @@ public static class ApiKeyDefaults
     public const string HeaderName = "X-Api-Key";
     internal const string ClientItem = "rasel.client";
     internal const string ThrottledItem = "rasel.auth.throttled";
+    public const string ScopeClaim = "rasel:scope";
 
     /// <summary>The authenticated API client. Only valid on endpoints that require authentication.</summary>
     public static ApiClient GetClient(this HttpContext context) => (ApiClient)context.Items[ClientItem]!;
@@ -26,10 +27,11 @@ public static class ApiKeyDefaults
 /// </summary>
 public sealed class ApiKeyAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> schemeOptions, ILoggerFactory loggerFactory, UrlEncoder encoder,
-    IApiClientRepository clients, IRateLimiter limiter, IOptions<ApiOptions> apiOptions, IProblemDetailsService problems)
+    IApiClientRepository clients, IRateLimiter limiter, IOptions<ApiOptions> apiOptions, IProblemDetailsService problems, TimeProvider time)
     : AuthenticationHandler<AuthenticationSchemeOptions>(schemeOptions, loggerFactory, encoder)
 {
     private static readonly TimeSpan FailureWindow = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan LastUsedGranularity = TimeSpan.FromMinutes(1); // bounds the write rate of LastUsedAt
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
@@ -48,16 +50,29 @@ public sealed class ApiKeyAuthenticationHandler(
         if (key.Length > 0 && key.Length <= options.MaxKeyLength)
             client = await clients.FindByKeyHashAsync(ApiKeyHasher.Hash(key), Context.RequestAborted);
 
-        if (client is not { Active: true } || !ApiKeyHasher.Matches(key, client.ApiKeyHash))
+        var now = time.GetUtcNow();
+        // Unknown, revoked and expired keys are indistinguishable to the caller (same 401, same throttle accounting).
+        if (client is null || !client.IsUsable(now) || !ApiKeyHasher.Matches(key, client.ApiKeyHash))
         {
             limiter.TryAcquire(failureKey, options.FailedAuthPerMinute, FailureWindow);
             Logger.LogWarning("Rejected API key from {RemoteIp}", Context.Connection.RemoteIpAddress);
             return AuthenticateResult.Fail("Invalid API key.");
         }
 
+        try { await clients.TouchAsync(client.Id, now, now - LastUsedGranularity, Context.RequestAborted); }
+        catch (Exception ex) when (ex is not OperationCanceledException) { Logger.LogDebug(ex, "Could not record key usage"); }
+
         Context.Items[ApiKeyDefaults.ClientItem] = client;
-        var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, client.Id.ToString()), new Claim(ClaimTypes.Name, client.Name)], Scheme.Name);
+        var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, client.Id.ToString()), new Claim(ClaimTypes.Name, client.Name), new Claim(ApiKeyDefaults.ScopeClaim, client.Scope.ToString())], Scheme.Name);
         return AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme.Name));
+    }
+
+    protected override async Task HandleForbiddenAsync(AuthenticationProperties properties)
+    {
+        Response.StatusCode = StatusCodes.Status403Forbidden;
+        var problem = new ProblemDetails { Status = 403, Title = "forbidden_scope", Detail = "This API key's scope does not allow this operation." };
+        problem.Extensions["code"] = "forbidden_scope";
+        await problems.TryWriteAsync(new ProblemDetailsContext { HttpContext = Context, ProblemDetails = problem });
     }
 
     protected override async Task HandleChallengeAsync(AuthenticationProperties properties)

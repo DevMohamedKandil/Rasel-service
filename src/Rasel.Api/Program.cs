@@ -35,8 +35,11 @@ builder.Services.AddExceptionHandler<AppExceptionHandler>();
 
 // Fail closed: every endpoint requires a valid API key unless it is explicitly marked AllowAnonymous.
 builder.Services.AddAuthentication(ApiKeyDefaults.Scheme).AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(ApiKeyDefaults.Scheme, null);
-builder.Services.AddAuthorization(o => o.FallbackPolicy = new AuthorizationPolicyBuilder()
-    .AddAuthenticationSchemes(ApiKeyDefaults.Scheme).RequireAuthenticatedUser().Build());
+builder.Services.AddAuthorization(o =>
+{
+    o.FallbackPolicy = new AuthorizationPolicyBuilder().AddAuthenticationSchemes(ApiKeyDefaults.Scheme).RequireAuthenticatedUser().Build();
+    o.AddRaselPolicies();
+});
 
 if (builder.Environment.IsDevelopment())
 {
@@ -81,6 +84,7 @@ v1.MapSessionEndpoints();
 v1.MapMessageEndpoints();
 v1.MapOtpEndpoints();
 v1.MapSystemEndpoints();
+v1.MapKeyEndpoints();
 
 app.Run();
 

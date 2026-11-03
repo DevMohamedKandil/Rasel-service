@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Options;
+using Rasel.Api.Security;
 using Rasel.Application.Common;
+using Rasel.Domain.Enums;
 using Rasel.Application.Ports;
 using Rasel.Infrastructure.Configuration;
 
@@ -11,10 +13,11 @@ public sealed record SidecarStateDto(SidecarState State, string? Step, string? R
 
 public static class SystemEndpoints
 {
-    private static SystemStatusDto Snapshot(ISidecarControl control, IOptions<WhatsAppOptions> whatsApp)
+    private static SystemStatusDto Snapshot(ISidecarControl control, IOptions<WhatsAppOptions> whatsApp, bool detail = true)
     {
         var s = control.Status;
-        return new SystemStatusDto(whatsApp.Value.Provider, new SidecarStateDto(s.State, s.Step, s.Reason, s.Crashes, s.AutoStart));
+        // Step and Reason are engine internals (failure text): Admin keys only.
+        return new SystemStatusDto(whatsApp.Value.Provider, new SidecarStateDto(s.State, detail ? s.Step : null, detail ? s.Reason : null, s.Crashes, s.AutoStart));
     }
 
     public static void MapSystemEndpoints(this RouteGroupBuilder v1)
@@ -24,8 +27,8 @@ public static class SystemEndpoints
         group.MapGet("/status", (ISidecarControl control, IOptions<WhatsAppOptions> whatsApp, HttpContext http) =>
         {
             http.Response.Headers.CacheControl = "no-store";
-            return Results.Ok(Snapshot(control, whatsApp));
-        });
+            return Results.Ok(Snapshot(control, whatsApp, http.User.HasClaim(ApiKeyDefaults.ScopeClaim, nameof(ApiKeyScope.Admin))));
+        }).RequireStandard();
 
         // Idempotent: 202 when the request changes something, 200 when already in that state, 409 when the sidecar is not managed.
         IResult Command(Func<ISidecarControl, SidecarCommandResult> act, ISidecarControl control, IOptions<WhatsAppOptions> whatsApp) => act(control) switch
@@ -35,8 +38,8 @@ public static class SystemEndpoints
             _ => throw new AppException(ErrorKind.Conflict, "sidecar_not_managed", "The WhatsApp engine is not managed by Rasel (WhatsApp:Provider is not Managed)."),
         };
 
-        group.MapPost("/sidecar/start", (ISidecarControl c, IOptions<WhatsAppOptions> w) => Command(x => x.RequestStart(), c, w));
-        group.MapPost("/sidecar/stop", (ISidecarControl c, IOptions<WhatsAppOptions> w) => Command(x => x.RequestStop(), c, w));
-        group.MapPost("/sidecar/restart", (ISidecarControl c, IOptions<WhatsAppOptions> w) => Command(x => x.RequestRestart(), c, w));
+        group.MapPost("/sidecar/start", (ISidecarControl c, IOptions<WhatsAppOptions> w) => Command(x => x.RequestStart(), c, w)).RequireAdmin();
+        group.MapPost("/sidecar/stop", (ISidecarControl c, IOptions<WhatsAppOptions> w) => Command(x => x.RequestStop(), c, w)).RequireAdmin();
+        group.MapPost("/sidecar/restart", (ISidecarControl c, IOptions<WhatsAppOptions> w) => Command(x => x.RequestRestart(), c, w)).RequireAdmin();
     }
 }

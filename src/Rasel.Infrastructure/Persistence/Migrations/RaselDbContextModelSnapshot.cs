@@ -31,13 +31,25 @@ namespace Rasel.Infrastructure.Persistence.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("TEXT");
 
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("DailyMessageLimit")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("ExpiresAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("LastUsedAt")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("Scope")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
