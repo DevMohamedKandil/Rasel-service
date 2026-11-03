@@ -2,8 +2,9 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
-export interface SessionDto { id: string; name: string; status: string; }
-export interface QrDto { sessionId: string; status: string; qr: string | null; }
+export interface SessionDto { id: string; name: string; status: string; linkedPhoneMasked?: string | null; }
+export interface QrDto { sessionId: string; status: string; qr: string | null; linkedPhoneMasked?: string | null; }
+export interface LinkedNumberDto { sessionId: string; phone: string; }
 export interface MessageStatusDto {
   id: string; status: string; attempts: number; createdAt: string;
   sentAt: string | null; nextAttemptAt: string | null; lastErrorCode: string | null;
@@ -35,6 +36,7 @@ export class ApiService {
   }
   session(id: string): Observable<SessionDto> { return this.http.get<SessionDto>(this.url(`/v1/sessions/${id}`), { headers: this.headers() }); }
   qr(id: string): Observable<QrDto> { return this.http.get<QrDto>(this.url(`/v1/sessions/${id}/qr`), { headers: this.headers() }); }
+  linkedNumber(id: string): Observable<LinkedNumberDto> { return this.http.get<LinkedNumberDto>(this.url(`/v1/sessions/${id}/linked-number`), { headers: this.headers() }); }
   message(id: string): Observable<MessageStatusDto> { return this.http.get<MessageStatusDto>(this.url(`/v1/messages/${id}`), { headers: this.headers() }); }
   health(): Observable<HealthDto> { return this.http.get<HealthDto>(this.url('/health/ready')); }
 }

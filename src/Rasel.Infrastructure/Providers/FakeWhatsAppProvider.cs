@@ -59,6 +59,14 @@ public sealed class FakeWhatsAppProvider : IWhatsAppProvider
         lock (_gate) return Task.FromResult(_sessions.GetValueOrDefault(sessionId, SessionStatus.Failed));
     }
 
+    /// <summary>Fixed fake number while connected.</summary>
+    public const string FakeLinkedPhone = "201000000000";
+
+    public Task<string?> GetLinkedPhoneAsync(Guid sessionId, CancellationToken ct)
+    {
+        lock (_gate) return Task.FromResult(_sessions.GetValueOrDefault(sessionId) == SessionStatus.Connected ? FakeLinkedPhone : null);
+    }
+
     public Task SendTextToPhoneAsync(Guid sessionId, string phoneE164, string text, Guid messageId, CancellationToken ct) =>
         Record(new FakeSentMessage(sessionId, phoneE164, false, text));
 

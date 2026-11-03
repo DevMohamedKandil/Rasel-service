@@ -5,9 +5,23 @@ using Rasel.Domain.Enums;
 
 namespace Rasel.Application.UseCases;
 
-public sealed record SessionDto(Guid Id, string Name, SessionStatus Status);
+public sealed record SessionDto(Guid Id, string Name, SessionStatus Status, string? LinkedPhoneMasked = null);
 
-public sealed record QrDto(Guid SessionId, SessionStatus Status, string? Qr);
+public sealed record QrDto(Guid SessionId, SessionStatus Status, string? Qr, string? LinkedPhoneMasked = null);
+
+/// <summary>The full number. Returned only by its own authenticated endpoint; never put it in any other DTO or log.</summary>
+public sealed record LinkedNumberDto(Guid SessionId, string Phone);
+
+internal static class LinkedPhone
+{
+    /// <summary>Only asked when connected; a provider failure here must not fail the status call.</summary>
+    public static async Task<string?> TryGetAsync(IWhatsAppProvider provider, Guid id, SessionStatus status, CancellationToken ct)
+    {
+        if (status != SessionStatus.Connected) return null;
+        try { return await provider.GetLinkedPhoneAsync(id, ct); }
+        catch (ProviderException) { return null; }
+    }
+}
 
 internal static class SessionLookup
 {
@@ -53,7 +67,7 @@ public sealed class GetSessionStatusHandler(ISessionRepository sessions, IWhatsA
             await sessions.UpdateAsync(session, ct);
         }
 
-        return new SessionDto(session.Id, session.Name, session.Status);
+        return new SessionDto(session.Id, session.Name, session.Status, PhoneMask.Mask(await LinkedPhone.TryGetAsync(provider, id, session.Status, ct)));
     }
 }
 
@@ -68,7 +82,7 @@ public sealed class GetSessionQrHandler(ISessionRepository sessions, IWhatsAppPr
         var qr = await provider.GetQrAsync(id, ct);
         session.UpdateStatus(await provider.GetStatusAsync(id, ct), clock.GetUtcNow());
         await sessions.UpdateAsync(session, ct);
-        return new QrDto(session.Id, session.Status, qr);
+        return new QrDto(session.Id, session.Status, qr, PhoneMask.Mask(await LinkedPhone.TryGetAsync(provider, id, session.Status, ct)));
     }
 }
 
@@ -80,5 +94,17 @@ public sealed class StopSessionHandler(ISessionRepository sessions, IWhatsAppPro
         await provider.StopSessionAsync(id, ct);
         session.UpdateStatus(SessionStatus.Stopped, clock.GetUtcNow());
         await sessions.UpdateAsync(session, ct);
+    }
+}
+
+public sealed class GetLinkedNumberHandler(ISessionRepository sessions, IWhatsAppProvider provider)
+{
+    public async Task<LinkedNumberDto> HandleAsync(Guid clientId, Guid id, CancellationToken ct)
+    {
+        var session = await SessionLookup.GetOrThrowAsync(sessions, id, clientId, ct);
+        var phone = PhoneMask.Full(await LinkedPhone.TryGetAsync(provider, id, SessionStatus.Connected, ct));
+        if (session.Status == SessionStatus.Stopped || phone is null)
+            throw new AppException(ErrorKind.Conflict, "session_not_connected", "No linked number: the session is not connected.");
+        return new LinkedNumberDto(session.Id, phone);
     }
 }

@@ -3,6 +3,8 @@
 A step-by-step guide for the person who runs Rasel day to day. No programming knowledge is needed for sections 1 to 5.
 
 > **What was really tested.** Every screenshot and every command output in this guide comes from the **Fake provider**: a built-in simulator that never touches WhatsApp. Linking a real phone (section 4) and receiving a real OTP (section 6) were **not performed on real WhatsApp** while writing this guide; those steps describe how the product is designed to work. Marked with **[Fake only]** where a screenshot is a simulation. Keys, numbers and ids in the pictures are placeholders or fake.
+
+> Once connected, the Sessions page shows your linked number masked (for example +20100****880). Click the eye button to show it for 30 seconds; it hides again automatically.
 >
 > Arabic version: [USER-GUIDE.ar.md](USER-GUIDE.ar.md)
 

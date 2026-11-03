@@ -49,6 +49,20 @@ public sealed class BridgeWhatsAppProvider(HttpClient http, IOptions<WhatsAppOpt
         };
     }
 
+    /// <summary>GET /info on the Rasel sidecar. The legacy WPService has no such route (404) and then this is simply null.</summary>
+    public async Task<string?> GetLinkedPhoneAsync(Guid sessionId, CancellationToken ct)
+    {
+        using var response = await SendAsync(HttpMethod.Get, "/info", null, ct, throwOnError: false);
+        if (!response.IsSuccessStatusCode) return null;
+        try
+        {
+            var doc = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>(ct);
+            var phone = doc.ValueKind == System.Text.Json.JsonValueKind.Object && doc.TryGetProperty("phone", out var p) && p.ValueKind == System.Text.Json.JsonValueKind.String ? p.GetString() : null;
+            return phone is { Length: >= 5 and <= 20 } && phone.All(char.IsAsciiDigit) ? phone : null;
+        }
+        catch (System.Text.Json.JsonException) { return null; }
+    }
+
     public async Task SendTextToPhoneAsync(Guid sessionId, string phoneE164, string text, Guid messageId, CancellationToken ct)
     {
         var digits = phoneE164.TrimStart('+');

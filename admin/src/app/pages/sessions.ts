@@ -1,4 +1,6 @@
-import { Component, OnDestroy, inject, signal } from '@angular/core';
+import { Component, OnDestroy, effect, inject, signal } from '@angular/core';
+import { map } from 'rxjs';
+import { PhoneReveal } from '../core/phone-reveal';
 import { FormsModule } from '@angular/forms';
 import { ApiService, SessionDto } from '../core/api.service';
 import { I18n } from '../core/i18n';
@@ -44,13 +46,34 @@ import { Illustration } from '../ui/illustration';
                 <div class="qr-frame">
                   @if (qr().kind === 'image') { <img [src]="imageSrc()" [alt]="i18n.t('ses.qrtitle')" width="240" height="240" /> }
                   @else if (qr().kind === 'text') { <div class="qr-text"><div><small>{{ i18n.t('ses.qrtext') }}</small><br><code>{{ textQr() }}</code></div></div> }
+                  @else if (qrNote() === 'ses.connectedNote') { <div class="qr-text"><span style="font-size: 5rem; line-height: 1; color: var(--ok, #25d366)" aria-hidden="true">✓</span></div> }
                   @else { <div class="qr-text"><span class="skel" style="width: 12rem; height: 12rem"></span></div> }
                 </div>
                 <div class="qr-side">
                   <h3>{{ i18n.t('ses.qrtitle') }} <app-hint key="hint.qr" /></h3>
-                  <ol><li>{{ i18n.t('ses.qrsteps') }}</li></ol>
+                  @if (qrNote() !== 'ses.connectedNote') { <ol><li>{{ i18n.t('ses.qrsteps') }}</li></ol> }
                   @if (qrNote()) { <p class="muted" style="font-size: var(--t-sm)" role="status">{{ i18n.t(qrNote()) }}</p> }
-                  <p class="live"><span class="dot ok"></span>{{ i18n.t('ses.qrauto') }}</p>
+                  @if (qrNote() !== 'ses.connectedNote') { <p class="live"><span class="dot ok"></span>{{ i18n.t('ses.qrauto') }}</p> }
+                  @if (qrNote() === 'ses.connectedNote' && maskedFor(s)) {
+                    <p class="row" style="gap: .5rem; margin: var(--s-2) 0">
+                      <span class="muted">{{ i18n.t('ses.phone') }}:</span>
+                      <bdi dir="ltr"><code data-testid="linked-phone">{{ reveal.revealed() ? reveal.full() : maskedFor(s) }}</code></bdi>
+                      <button type="button" class="btn ghost sm" [attr.aria-pressed]="reveal.revealed()" [disabled]="reveal.loading()"
+                        [attr.aria-label]="i18n.t(reveal.revealed() ? 'ses.phoneHide' : 'ses.phoneShow')" [title]="i18n.t(reveal.revealed() ? 'ses.phoneHide' : 'ses.phoneShow')"
+                        (click)="toggleReveal(s)"><app-icon [name]="reveal.revealed() ? 'eyeoff' : 'eye'" /></button>
+                    </p>
+                    <p class="muted" style="font-size: var(--t-sm)">{{ i18n.t('ses.phoneHint') }}</p>
+                  }
+                  @if (qrNote() === 'ses.connectedNote') {
+                    <details class="muted" style="font-size: var(--t-sm); margin-top: var(--s-2)">
+                      <summary>{{ i18n.t('ses.disconnectTitle') }}</summary>
+                      <p>{{ i18n.t('ses.disconnectHow') }}</p>
+                    </details>
+                    <details class="muted" style="font-size: var(--t-sm); margin-top: var(--s-2)">
+                      <summary>{{ i18n.t('ses.addNumberTitle') }}</summary>
+                      <p>{{ i18n.t('ses.addNumberHow') }}</p>
+                    </details>
+                  }
                   <div class="row wrap" style="margin-top: var(--s-3)">
                     <button type="button" class="btn ghost sm" (click)="showQr(s)"><app-icon name="refresh" />{{ i18n.t('ses.qrrefresh') }}</button>
                     <button type="button" class="btn ghost sm" (click)="closeQr()"><app-icon name="close" />{{ i18n.t('ses.close') }}</button>
@@ -75,13 +98,21 @@ export class SessionsPage implements OnDestroy {
   readonly qrNote = signal('');
   readonly qrFor = signal('');
   private poll: ReturnType<typeof setInterval> | null = null;
+  readonly reveal = new PhoneReveal((id) => this.api.linkedNumber(id).pipe(map((r) => r.phone)));
+
+  constructor() {
+    // Logout (key cleared) must not leave a revealed number in memory.
+    effect(() => { if (!this.api.loggedIn()) this.reveal.hide(); });
+  }
+  maskedFor(s: SessionDto) { return s.linkedPhoneMasked ?? ''; }
+  toggleReveal(s: SessionDto) { this.reveal.toggle(s.id, (e) => this.toast.error(e)); }
 
   imageSrc() { const q = this.qr(); return q.kind === 'image' ? q.src : ''; }
   textQr() { const q = this.qr(); return q.kind === 'text' ? q.text : ''; }
   stLabel(s: string) { const k = 'st.' + s; const t = this.i18n.t(k); return t === k ? s : t; }
   tone(s: string) { return s === 'Connected' ? 'ok' : s === 'Failed' ? 'bad' : s === 'NeedsQr' ? 'warn' : s === 'Starting' ? 'info' : ''; }
 
-  ngOnDestroy() { this.stopPoll(); }
+  ngOnDestroy() { this.stopPoll(); this.reveal.hide(); }
   private stopPoll() { if (this.poll) { clearInterval(this.poll); this.poll = null; } }
 
   create() {
@@ -97,8 +128,9 @@ export class SessionsPage implements OnDestroy {
       error: (e) => this.toast.error(e),
     });
   }
-  closeQr() { this.stopPoll(); this.qrFor.set(''); this.qr.set({ kind: 'none' }); this.qrNote.set(''); }
+  closeQr() { this.reveal.hide(); this.stopPoll(); this.qrFor.set(''); this.qr.set({ kind: 'none' }); this.qrNote.set(''); }
   showQr(s: SessionDto) {
+    if (this.qrFor() !== s.id) this.reveal.hide();
     this.stopPoll();
     this.qrFor.set(s.id);
     this.qr.set({ kind: 'none' });
@@ -110,7 +142,7 @@ export class SessionsPage implements OnDestroy {
     this.api.qr(id).subscribe({
       next: (r) => {
         if (this.qrFor() !== id) return;
-        this.store.update(id, { status: r.status });
+        this.store.update(id, { status: r.status, linkedPhoneMasked: r.linkedPhoneMasked ?? null });
         const view = parseQr(r.qr);
         this.qr.set(view);
         this.qrNote.set(view.kind !== 'none' ? '' : r.status === 'Connected' ? 'ses.connectedNote' : 'ses.noqr');

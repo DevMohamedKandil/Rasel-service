@@ -93,6 +93,14 @@ $ curl -H "X-Api-Key: ..." http://127.0.0.1:5114/v1/sessions/2d88.../qr
 
 `qr` is `null` when none is available. With the **Fake** provider the value is the text `fake-qr:<id>` and **fetching it makes the session `Connected`**. With the Bridge provider it is an HTML `<img src="data:image/png;base64,...">` fragment (README); treat it as untrusted: extract only the `data:image/png` URL and never render the HTML (the admin console does exactly this). `409 session_stopped` when the session is stopped.
 
+### Linked number (privacy)
+
+When the session is `Connected`, `GET /v1/sessions/{id}` and `/qr` add `"linkedPhoneMasked":"+20100****880"` (first 5 and last 3 digits; `null` when unknown or not connected). The full number is never in those payloads.
+
+### GET /v1/sessions/{id}/linked-number
+
+Returns `{"sessionId":"...","phone":"+201000000880"}` with `Cache-Control: no-store`. `404 session_not_found` for an unknown id or another client's session; `409 session_not_connected` when no number is linked. The number is never logged or placed in OpenAPI examples. With the Bridge provider it comes from the sidecar's `GET /info` (token protected); the legacy bridge has no `/info`, so it is `null` there. The Fake provider returns `+201000000000`.
+
 ### DELETE /v1/sessions/{id}
 
 Stops the session. `204 No Content` (confirmed). Afterwards the session is `Stopped`.

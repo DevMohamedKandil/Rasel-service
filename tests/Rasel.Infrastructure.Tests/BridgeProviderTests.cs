@@ -142,4 +142,23 @@ public class BridgeProviderTests
         o.Bridge.AttemptTimeoutSeconds = 0;
         Assert.False(new WhatsAppOptionsValidator().Validate(null, o).Succeeded);
     }
+
+    [Theory]
+    [InlineData("{\"phone\":\"201000000880\"}", "201000000880")]
+    [InlineData("{\"phone\":null}", null)]
+    [InlineData("{\"phone\":\"abc\"}", null)]
+    [InlineData("not json", null)]
+    public async Task Linked_phone_is_read_from_info_and_validated(string json, string? expected)
+    {
+        var stub = new Stub((_, _) => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") });
+        Assert.Equal(expected, await Build(stub).GetLinkedPhoneAsync(Guid.NewGuid(), default));
+        Assert.Equal("/info", stub.Calls.Single().Url);
+    }
+
+    [Fact]
+    public async Task Linked_phone_is_null_on_the_legacy_bridge_without_info()
+    {
+        var stub = new Stub((_, _) => Text(HttpStatusCode.NotFound, "Cannot GET /info"));
+        Assert.Null(await Build(stub).GetLinkedPhoneAsync(Guid.NewGuid(), default));
+    }
 }

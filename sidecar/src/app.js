@@ -12,7 +12,7 @@ function tokenOk(expected, supplied) {
 }
 
 /**
- * Builds the HTTP surface. state = { isReady(), qrHtml() }, client = { getChats(), sendMessage(id, text, opts) }.
+ * Builds the HTTP surface. state = { isReady(), qrHtml(), phone?() }, client = { getChats(), sendMessage(id, text, opts) }.
  * Free of whatsapp-web.js so the contract is testable without WhatsApp. Bodies are plain text, as the Rasel Bridge provider expects.
  */
 function createApp({ client, state, sharedToken = '' }) {
@@ -29,6 +29,14 @@ function createApp({ client, state, sharedToken = '' }) {
     });
 
     app.get('/Qr', (_req, res) => res.send(state.qrHtml()));
+
+    // Linked WhatsApp number (digits, no +) for the admin UI; null until ready. Behind the shared token like everything but /healthz.
+    // Never logged. Rasel masks it; only an authenticated Rasel endpoint ever returns it in full.
+    app.get('/info', (_req, res) => {
+        res.set('Cache-Control', 'no-store');
+        const phone = state.isReady() && typeof state.phone === 'function' ? state.phone() : null;
+        res.json({ phone: /^[0-9]{5,20}$/.test(phone || '') ? phone : null });
+    });
 
     app.get('/sendMessage', async (req, res) => {
         if (!state.isReady()) return res.status(503).send('WhatsApp client not ready yet');

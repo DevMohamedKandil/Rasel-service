@@ -4,13 +4,13 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { createApp } = require('../src/app');
 
-function start({ ready = true, chats = [], token = '' } = {}) {
+function start({ ready = true, chats = [], token = '', phone } = {}) {
     const sent = [];
     const client = {
         getChats: async () => chats,
         sendMessage: async (id, text, opts) => { sent.push({ id, text, opts }); },
     };
-    const app = createApp({ client, state: { isReady: () => ready, qrHtml: () => '<img src="x">' }, sharedToken: token });
+    const app = createApp({ client, state: { isReady: () => ready, qrHtml: () => '<img src="x">', phone: () => phone }, sharedToken: token });
     return new Promise(resolve => {
         const server = app.listen(0, '127.0.0.1', () => resolve({ base: `http://127.0.0.1:${server.address().port}`, sent, close: () => server.close() }));
     });
@@ -56,4 +56,16 @@ test('shared token: required when configured, healthz stays open', async () => {
     assert.strictEqual((await fetch(s.base + '/Qr', { headers: { 'X-Bridge-Token': 'secret-token' } })).status, 200);
     assert.strictEqual((await fetch(s.base + '/healthz')).status, 200);
     assert.strictEqual((await post(s.base, { groupName: 'A', message: 'x' })).status, 401); s.close();
+});
+
+test('GET /info: number only when ready, token required, no-store', async () => {
+    let s = await start({ ready: true, phone: '201000000880', token: 't' });
+    assert.strictEqual((await fetch(s.base + '/info')).status, 401);
+    const r = await fetch(s.base + '/info', { headers: { 'x-bridge-token': 't' } });
+    assert.strictEqual(r.headers.get('cache-control'), 'no-store');
+    assert.deepStrictEqual(await r.json(), { phone: '201000000880' }); s.close();
+    s = await start({ ready: false, phone: '201000000880' });
+    assert.deepStrictEqual(await (await fetch(s.base + '/info')).json(), { phone: null }); s.close();
+    s = await start({ ready: true, phone: 'not digits' });
+    assert.deepStrictEqual(await (await fetch(s.base + '/info')).json(), { phone: null }); s.close();
 });

@@ -49,7 +49,7 @@ client.on('disconnected', (reason) => {
     client.destroy().catch(e => console.log('destroy failed: ' + e)).finally(() => client.initialize());
 });
 
-const app = createApp({ client, state: { isReady: () => ready, qrHtml: () => qrHtml }, sharedToken: config.sharedToken });
+const app = createApp({ client, state: { isReady: () => ready, qrHtml: () => qrHtml, phone: () => (client.info && client.info.wid && client.info.wid.user) || null }, sharedToken: config.sharedToken });
 if (!config.sharedToken && config.host !== '127.0.0.1' && config.host !== 'localhost') {
     console.warn('WARNING: non-loopback HOST without SHARED_TOKEN; anyone who can reach it can send messages.');
 }

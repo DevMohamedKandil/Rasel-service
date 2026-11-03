@@ -17,6 +17,8 @@ public interface IWhatsAppProvider
     Task StopSessionAsync(Guid sessionId, CancellationToken ct);
     Task<string?> GetQrAsync(Guid sessionId, CancellationToken ct);
     Task<SessionStatus> GetStatusAsync(Guid sessionId, CancellationToken ct);
+    /// <summary>Digits of the number linked to the session (no '+'), or null when not connected / unknown. Sensitive: never log it.</summary>
+    Task<string?> GetLinkedPhoneAsync(Guid sessionId, CancellationToken ct) => Task.FromResult<string?>(null);
     /// <param name="messageId">Stable per message, so a real provider can de-duplicate a retried send.</param>
     Task SendTextToPhoneAsync(Guid sessionId, string phoneE164, string text, Guid messageId, CancellationToken ct);
     /// <summary>Throws <see cref="ProviderException"/> unless exactly one group has this exact name.</summary>
