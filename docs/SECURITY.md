@@ -48,3 +48,10 @@ Trust boundary: the calling project (holds an API key) is trusted to call Rasel 
 * **Phone takeover / SIM swap** and **social engineering** are not addressed by an OTP gateway.
 * **Webhooks** are not retried.
 * **Real provider** hardening (session storage of the whatsapp-web.js sidecar, WhatsApp account bans) is outside this repository.
+
+## Ban-risk and abuse notes
+
+- Send pacing (jitter plus minimum gap per session), a per-recipient daily cap (default 5, `recipient_daily_limit`) and varied OTP wording reduce WhatsApp ban risk and recipient harassment. They are mitigations, not guarantees.
+- The recipient cap stores only a keyed hash of (client, number) in `Messages.RecipientKey`.
+- `GET /v1/messages/{id}` never returns text, destination or OTP codes; other clients' messages answer 404.
+- Random long delays on OTP were rejected for UX. For production OTP use the WhatsApp Cloud API with a dedicated OTP number, and put a CAPTCHA before the OTP request endpoint to stop automated pumping.

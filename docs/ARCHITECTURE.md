@@ -93,3 +93,9 @@ Handlers throw `AppException(kind, code, detail)`; one exception handler maps to
 * Webhooks are fire-and-forget (logged on failure, not retried).
 * The invented `WebJs` sidecar was never built; only the `Bridge` adapter ran against a real whatsapp-web.js instance.
 * There is no `GET /v1/messages/{id}`; message status was read from the database in the real proof.
+
+## Ban-risk protection
+
+`SendPacer` (singleton, per session) is called before every provider send. Bulk messages (outbox) wait a random jitter (`Pacing:MinDelayMs..MaxDelayMs`) and at least `MinGapMs` after the previous send, and yield while an OTP is waiting on the same session. OTPs (inline) never wait for the gap or for bulk; they get the jitter only when the session sent less than `MinGapMs` ago, so an idle session sends an OTP at once. Randomness (`IRandomSource`) and time (`TimeProvider`) are injected, so tests are deterministic.
+
+The per-recipient daily cap counts `Messages.RecipientKey`, a keyed HMAC of (client, E.164 number) made with the OTP pepper, so the number itself is not stored (migration `RecipientKey`). It applies to phone sends and OTP requests, after the 60 s resend cooldown. `OtpMessageComposer` picks a random template per request (6 English + 6 Arabic by default, overridable, validated to contain `{app}` and `{code}`). `GET /v1/messages/{id}` (`GetMessageHandler`) is client-scoped and exposes state only. Group messages are not counted per recipient. Delivery is still at-least-once; the pacer is in-memory, so it is per process.

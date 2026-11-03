@@ -67,7 +67,10 @@ Every setting lives in `src/Rasel.Api/appsettings.json` and can be overridden wi
 | `Otp:ResendCooldownSeconds` | 60 | Minimum gap between codes for one phone/purpose |
 | `Otp:PerPhonePerHour` / `Otp:PerClientPerMinute` | 5 / 60 | Code request limits |
 | `Outbox:PollIntervalMs` | 500 | Idle poll interval of the worker |
-| `Outbox:MinDelayMs` / `Outbox:MaxDelayMs` | 1000 / 3000 | Random pause between sends (anti-robot) |
+| `Pacing:MinDelayMs` / `Pacing:MaxDelayMs` | 1000 / 5000 | Random jitter before a send that follows another send on the same session (validated at startup) |
+| `Pacing:MinGapMs` | 1500 | Minimum gap between two bulk messages on one session (OTP is exempt) |
+| `Pacing:DailyPerRecipient` | 5 | Messages per client and recipient number per UTC day (`429 recipient_daily_limit`) |
+| `Otp:AppName` / `Otp:TemplatesEn` / `Otp:TemplatesAr` | Rasel / built-in 6+6 | OTP text variants (`{app}`, `{code}`, `{minutes}`; app and code required); chosen at random, language from the request `language` (`ar`/`en`) |
 | `Outbox:MaxAttempts` | 5 | Attempts before a transient failure becomes `Failed` |
 | `Outbox:BaseBackoffSeconds` / `Outbox:MaxBackoffSeconds` | 5 / 900 | Exponential retry backoff |
 | `Outbox:LeaseSeconds` / `Outbox:BatchSize` | 120 / 10 | Claim lease (crash recovery) and batch size |
@@ -112,7 +115,7 @@ curl -H "$H" -H "$J" -d '{"challengeId":"...","code":"123456"}' $B/v1/otp/verify
 | Status | `code` examples |
 |---|---|
 | 400 | `invalid_phone`, `invalid_text`, `invalid_target`, `invalid_code_format`, `otp_invalid`, `invalid_request` |
-| 401 / 429 | `unauthorized`, `auth_throttled`, `rate_limited`, `otp_resend_too_soon`, `otp_rate_limited`, `daily_limit_reached` |
+| 401 / 429 | `unauthorized`, `auth_throttled`, `rate_limited`, `otp_resend_too_soon`, `otp_rate_limited`, `daily_limit_reached`, `recipient_daily_limit` |
 | 404 / 409 / 410 / 423 | `session_not_found`, `group_not_found`; `group_ambiguous`, `otp_already_used`, `idempotency_key_reused`; `otp_expired`, `otp_superseded`; `otp_locked` |
 | 502 | `otp_delivery_failed`, `provider_unavailable` |
 
@@ -122,6 +125,7 @@ Groups are addressed by **exact name**: zero matches is 404, more than one is 40
 
 `POST` with JSON `{event, clientId, timestamp, data}` and headers `X-Rasel-Timestamp` (unix seconds) and `X-Rasel-Signature: sha256=<hex>`, where the signature is `HMAC-SHA256(secret, "<timestamp>.<raw body>")`. Receivers should reject timestamps older than a few minutes. Events fire once per message, on the final outcome only. Webhook delivery is best effort (no retry yet).
 
+### Message status`GET /v1/messages/{id}` returns `status`, `attempts`, `createdAt`, `sentAt`, `nextAttemptAt` and a coarse `lastErrorCode` (`provider_error` / `provider_transient_error`). It never returns the text, the destination or an OTP code, and answers 404 for another client's message.### Ban-risk notesPacing, the per-recipient cap and OTP text variation lower the chance of a WhatsApp ban; they do not remove it. Random long delays on OTP were rejected for UX: an OTP only gets the jitter, and only when its session sent something less than `MinGapMs` ago. For production OTP use the WhatsApp Cloud API, a dedicated OTP number, and a CAPTCHA before the request endpoint.
 ## Tests
 
 ```bash
