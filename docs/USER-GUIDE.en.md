@@ -59,6 +59,8 @@ Keep `WHATSAPP_PROVIDER=Fake` until you are ready for real sending.
 2. **Service key**: the private key your administrator gave you. (The picture shows a placeholder.)
 3. Press **Sign in**.
 
+There are two kinds of keys. A **Standard** key can send messages and codes and read status; an **Admin** key can also start/stop the WhatsApp engine, delete a session and create, rotate or revoke other keys. Give applications a Standard key and keep Admin keys for operators; the first (seeded) key is an Admin key. With a Standard key, admin actions such as deleting a session are refused as "forbidden".
+
 The key is kept only in the page memory. Reloading the page signs you out; nothing is saved on your computer. The small **?** icons next to labels explain terms: hover, tap or press Tab to reach them; press Esc to close.
 
 After signing in you see the dashboard:

@@ -121,7 +121,7 @@ Every setting lives in `src/Rasel.Api/appsettings.json` and can be overridden wi
 
 ## API
 
-All `/v1` endpoints need `X-Api-Key`. Errors are RFC 7807 `application/problem+json` with a stable `code` and a `traceId`. Versioned responses carry `X-Api-Version: v1`.
+All `/v1` endpoints need `X-Api-Key`. Keys have a scope: **Standard** (send, OTP, read) or **Admin** (also sidecar start/stop/restart, session delete, key management under `/v1/keys`); the seeded `dev` key and keys that predate scopes are Admin. See `docs/API.md` section 2. Errors are RFC 7807 `application/problem+json` with a stable `code` and a `traceId`. Versioned responses carry `X-Api-Version: v1`.
 
 ```bash
 KEY=...   # your API key

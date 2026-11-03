@@ -4,7 +4,7 @@
 
 * **OTP code**: a 6-digit secret valid for 5 minutes, delivered to a phone, proving control of that phone to the calling project.
 * **Verification token**: HS256 JWT returned after a successful verify; the calling project trusts it.
-* **API key**: identifies a calling project (client). A leaked key lets an attacker send messages and request codes as that client, within its quotas.
+* **API key**: identifies a calling project (client) and carries a scope (Standard or Admin). A leaked Standard key lets an attacker send messages and request codes as that client, within its quotas; a leaked Admin key can also control the engine and manage keys, so hand Admin keys only to operators and rotate them if exposed.
 * **Secrets**: `Security:OtpPepper`, `Security:TokenSecret`, webhook secret.
 * **Pending message text and destination**: stored only while a message waits in the outbox.
 
@@ -30,6 +30,8 @@ Trust boundary: the calling project (holds an API key) is trusted to call Rasel 
 
 | Threat | Control |
 |---|---|
+| Over-privileged key (a leaked or shared key used to stop the engine, delete a session or mint keys) | Two scopes. Standard keys can only send/read; engine control, session delete and key management need an Admin key (`403 forbidden_scope`). Every endpoint must declare a policy (test-enforced; the fallback policy still denies anonymous). `GET /v1/system/status` is readable by Standard keys but engine internals (`step`, `reason`) are Admin only. |
+| Key lifecycle abuse / lock-out | Keys are generated server-side (192 random bits), shown once, stored hash-only. Revoked, expired and unknown keys give the identical 401 and count toward the per-IP throttle. The last usable Admin key cannot be revoked. Create/revoke/rotate are audit-logged without secrets; rotation supports a grace period. |
 | API key guessing | Keys are high entropy; stored as SHA-256 (indexed lookup is safe for random keys), re-compared in constant time; wrong keys are counted per client IP and the IP is answered `429 auth_throttled` **before any lookup** once over the limit (20/min). Keys longer than 128 chars are rejected unhashed. |
 | Forgotten authentication on a new route | Fallback policy requires authentication everywhere except `/health*`; a test checks every mapped endpoint. |
 | One client starving the service | Per-key request quota (600/min), 64 KiB body limit. |
@@ -44,7 +46,6 @@ Trust boundary: the calling project (holds an API key) is trusted to call Rasel 
 
 * **Single node**: rate limiters are in-process; with several instances limits multiply and the SQLite file cannot be shared.
 * **Behind a proxy** per-IP throttling sees the proxy address unless forwarded headers are configured (not done).
-* **No API key rotation/revocation endpoint**: `ApiClient.Active` exists but is managed directly in the database.
 * **Phone takeover / SIM swap** and **social engineering** are not addressed by an OTP gateway.
 * **Webhooks** are not retried.
 * **Real provider** hardening (session storage of the whatsapp-web.js sidecar, WhatsApp account bans) is outside this repository.

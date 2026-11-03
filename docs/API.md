@@ -36,11 +36,27 @@ Response headers you may see:
 
 ## 2. Authentication
 
+### Key scopes
+
+Every key has a scope: **Standard** (send messages, OTP request/verify, message status, create and read sessions, system status) or **Admin** (everything Standard can do, plus `DELETE /v1/sessions/{id}`, `POST /v1/system/sidecar/*` and key management). Keys that existed before scopes were introduced, and the seeded `dev` key, are Admin. Every `/v1` endpoint declares its policy explicitly; a test fails otherwise.
+
+### Key management (Admin)
+
+| Call | Result |
+|---|---|
+| `POST /v1/keys` `{"name":"billing","scope":"Standard","dailyMessageLimit":1000}` | `201` with `{"key":{id,name,scope,active,createdAt,lastUsedAt,expiresAt},"apiKey":"rsl_..."}`. `scope` is required (`400 invalid_scope`). The plaintext key is shown **once**; only its SHA-256 hash is stored, so it cannot be recovered. |
+| `GET /v1/keys` | `200` list of key metadata (never the key or its hash). `active` is false once revoked or past the grace period. `lastUsedAt` is accurate to about a minute. |
+| `POST /v1/keys/{id}/revoke` | `200`, idempotent. `409 last_admin_key` if it is the last usable Admin key. `404 key_not_found`. |
+| `POST /v1/keys/{id}/rotate` `{"graceSeconds":600}` (body optional) | `200` with the new key (shown once) and the old key's metadata. The old key is revoked immediately, or at `graceSeconds` (0 to 604800; default `Api:RotationGraceSeconds`, 0). `409 key_not_active` for a revoked or already rotating key. The new key keeps name, scope and daily limit. |
+
+Create, revoke and rotate are audit-logged (`AUDIT key.create|revoke|rotate` with actor and target ids) and never log keys or hashes. Per-key request quotas apply to these calls like any other.
+
 Send `X-Api-Key: <key>` on every `/v1` request. The server stores only a SHA-256 hash of the key, compares in constant time, and rejects keys longer than `Api:MaxKeyLength` (128).
 
 | Situation | Answer |
 |---|---|
-| Header missing, key unknown or inactive | `401 unauthorized` |
+| Header missing, key unknown, revoked or past its rotation grace | `401 unauthorized` (identical for all, so keys cannot be enumerated) |
+| Valid key whose scope is too low for the endpoint | `403 forbidden_scope` |
 | More than `Api:FailedAuthPerMinute` (20) wrong keys per minute from one client IP | `429 auth_throttled` with `Retry-After: 60` **(code only)** |
 
 ```
@@ -97,7 +113,7 @@ $ curl -H "X-Api-Key: ..." http://127.0.0.1:5114/v1/sessions/2d88.../qr
 
 `GET /v1/system/status` returns `{"provider":"Managed","sidecar":{"state":"NeedsQr","step":null,"reason":null,"crashes":0,"autoStart":true}}`. States: `Disabled` (Fake or external Bridge), `Preparing`, `InstallingDependencies`, `Ready` (prepared, waiting for Start when AutoStart is off), `Starting`, `NeedsQr`, `Connected`, `Stopped` (stopped on purpose, never auto-restarted), `Degraded` (crashed, restarting with back-off), `Failed` (needs a human; `reason` says what to do). `/health/ready` also lists a `sidecar` check that never fails the API.
 
-`POST /v1/system/sidecar/start`, `/stop`, `/restart`: idempotent. `202` when it changes something, `200` when already in that state, `409 sidecar_not_managed` when `WhatsApp:Provider` is not Managed. Rasel has no key scopes yet, so any valid API key can call these: limit who holds keys until scopes exist.
+`POST /v1/system/sidecar/start`, `/stop`, `/restart`: idempotent. `202` when it changes something, `200` when already in that state, `409 sidecar_not_managed` when `WhatsApp:Provider` is not Managed.  **Admin scope required** (`403 forbidden_scope` for Standard keys). `GET /v1/system/status` is readable by Standard keys, but `step` and `reason` (engine internals, failure text) are `null` unless the key is Admin.
 
 Sends while the engine is not ready fail transiently and stay queued in the outbox (retried with back-off up to `Outbox:MaxAttempts`).
 
@@ -280,6 +296,7 @@ HTTP status and `code` for every error the code can produce. "Confirmed" means i
 | Control | Default | Scope | Behavior |
 |---|---|---|---|
 | `Api:RequestsPerMinute` | 600 | per API key, all authenticated endpoints | `429 rate_limited` |
+| `Api:RotationGraceSeconds` | 0 | per rotation | how long a rotated key keeps working next to its replacement (a request may override) |
 | `Api:FailedAuthPerMinute` | 20 | per client IP | `429 auth_throttled` before any key lookup |
 | `Api:MaxRequestBodyBytes` | 65536 | request | rejected by the server |
 | Client daily limit | 1000 for the seeded client (`Seed:DevDailyMessageLimit`) | per client, UTC day | Soft: concurrent requests may overshoot by the in-flight count. `429 daily_limit_reached`. Counts every stored message including OTP records. |
