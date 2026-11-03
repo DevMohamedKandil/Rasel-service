@@ -15,6 +15,12 @@ public sealed class ApiOptions
     public int MaxRequestBodyBytes { get; set; } = 64 * 1024;
 
     public int ShutdownTimeoutSeconds { get; set; } = 30;
+
+    /// <summary>
+    /// Trust X-Forwarded-For/-Proto from the (single) reverse proxy in front of the API, so the per-IP failed-auth throttle sees the
+    /// real client instead of the proxy. Enable ONLY when a proxy always overwrites the header and the API port is not reachable directly.
+    /// </summary>
+    public bool TrustForwardedHeaders { get; set; }
 }
 
 public sealed class ApiOptionsValidator : IValidateOptions<ApiOptions>

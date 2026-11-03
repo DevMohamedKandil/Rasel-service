@@ -16,7 +16,7 @@ public readonly record struct PhoneNumber
         if (string.IsNullOrWhiteSpace(input)) return false;
 
         var cleaned = new string(input.Where(c => c is not (' ' or '-' or '(' or ')' or '.')).ToArray());
-        if (cleaned.StartsWith("00")) cleaned = "+" + cleaned[2..];
+        if (cleaned.StartsWith("00", StringComparison.Ordinal)) cleaned = "+" + cleaned[2..];
         if (cleaned.Length < 2 || cleaned[0] != '+') return false;
 
         var digits = cleaned[1..];

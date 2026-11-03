@@ -22,7 +22,7 @@ public sealed class TestClock : TimeProvider
 public sealed class RaselFactory(int dailyLimit = 1000, Dictionary<string, string>? settings = null, string environment = "Development") : WebApplicationFactory<Program>
 {
     public const string ApiKey = "test-api-key-0123456789";
-    private readonly string _dbPath = Path.Combine(@"C:\DevSpace\claude-scratch\rasel-tests", $"{Guid.NewGuid():N}.db");
+    private readonly string _dbPath = Path.Combine(Path.GetTempPath(), "rasel-tests", $"{Guid.NewGuid():N}.db");
 
     public TestClock Clock { get; } = new();
     public FakeWhatsAppProvider WhatsApp => Services.GetRequiredService<FakeWhatsAppProvider>();

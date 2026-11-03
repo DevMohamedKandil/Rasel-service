@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi;
 using Rasel.Api;
@@ -48,7 +49,17 @@ if (builder.Environment.IsDevelopment())
     });
 }
 
+if (config.GetValue<bool>("Api:TrustForwardedHeaders"))
+    builder.Services.Configure<ForwardedHeadersOptions>(o =>
+    {
+        o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        o.ForwardLimit = 1; // only the hop added by our own proxy
+        o.KnownIPNetworks.Clear();
+        o.KnownProxies.Clear();
+    });
+
 var app = builder.Build();
+if (config.GetValue<bool>("Api:TrustForwardedHeaders")) app.UseForwardedHeaders();
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();

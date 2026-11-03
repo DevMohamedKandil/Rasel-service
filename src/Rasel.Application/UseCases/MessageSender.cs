@@ -33,6 +33,14 @@ public sealed class MessageSender(
             message.RecordFailure(PiiRedactor.Redact(ex.Message), ex.IsTransient, clock.GetUtcNow(),
                 options.MaxAttempts, options.BackoffFor(message.Attempts + 1));
         }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            // A provider bug or an unmapped exception must still count as an attempt. Otherwise the row would stay at the
+            // head of the queue, be re-claimed after every lease and starve the messages behind it forever.
+            logger.LogError(ex, "Unexpected error delivering message {MessageId}", message.Id);
+            message.RecordFailure("unexpected delivery error", transient: true, clock.GetUtcNow(),
+                options.MaxAttempts, options.BackoffFor(message.Attempts + 1));
+        }
 
         // The provider call is done (or definitively failed): persist the outcome even during shutdown,
         // otherwise a sent message would be sent again after restart.

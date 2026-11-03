@@ -38,6 +38,8 @@ public static class DatabaseInitializer
 
         var configured = config["Seed:DevApiKey"];
         var key = string.IsNullOrWhiteSpace(configured) ? "rsl_" + Convert.ToHexString(RandomNumberGenerator.GetBytes(24)).ToLowerInvariant() : configured;
+        if (!string.IsNullOrWhiteSpace(configured) && configured.Length < 16 && !env.IsDevelopment())
+            throw new InvalidOperationException("Seed:DevApiKey must be at least 16 characters outside Development.");
         var limit = config.GetValue("Seed:DevDailyMessageLimit", 1000);
         await clients.AddAsync(ApiClient.Create("dev", ApiKeyHasher.Hash(key), limit), ct);
 

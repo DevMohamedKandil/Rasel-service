@@ -62,7 +62,7 @@ Seed__DevApiKey="$(openssl rand -hex 24)" Database__Path=/var/lib/rasel/rasel.db
 dotnet run --project src/Rasel.Api
 ```
 
-Terminate TLS in front of Rasel (reverse proxy). Rasel does not read `X-Forwarded-For`, so per-IP throttling sees the proxy address unless forwarded headers are configured.
+Terminate TLS in front of Rasel (reverse proxy) and set `Api__TrustForwardedHeaders=true`; otherwise per-IP throttling sees the proxy address and 20 wrong keys per minute from anyone lock out all callers. Review findings: [docs/REVIEW.md](docs/REVIEW.md).
 
 ## Configuration
 
@@ -77,6 +77,7 @@ Every setting lives in `src/Rasel.Api/appsettings.json` and can be overridden wi
 | `Seed:DevApiKey` / `Seed:DevDailyMessageLimit` | empty / 1000 | Seeds the `dev` client when the database has no client |
 | `Api:RequestsPerMinute` | 600 | Per API key quota (429 `rate_limited`) |
 | `Api:FailedAuthPerMinute` | 20 | Wrong-key attempts per client IP before it is throttled (429 `auth_throttled`) |
+| `Api:TrustForwardedHeaders` | false | Trust `X-Forwarded-For` from the single reverse proxy so the failed-auth throttle is per real client. Enable only when the proxy overwrites the header and the API port is not directly reachable |
 | `Api:MaxKeyLength` | 128 | Longer keys are rejected without a lookup |
 | `Api:MaxRequestBodyBytes` | 65536 | Kestrel body limit (413) |
 | `Api:ShutdownTimeoutSeconds` | 30 | Graceful shutdown window |

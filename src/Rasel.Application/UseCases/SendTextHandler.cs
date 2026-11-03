@@ -17,6 +17,7 @@ public sealed class SendTextHandler(
     RecipientLimitGuard recipientLimit, TimeProvider clock)
 {
     public const int MaxIdempotencyKeyLength = 128;
+    public const int MaxGroupNameLength = 128; // matches the column size
 
     public async Task<SendTextResult> HandleAsync(ApiClient client, SendTextCommand cmd, CancellationToken ct)
     {
@@ -24,6 +25,8 @@ public sealed class SendTextHandler(
             throw new AppException(ErrorKind.BadRequest, "invalid_text", "Text is required (max 4096 characters).");
         if (string.IsNullOrWhiteSpace(cmd.Phone) == string.IsNullOrWhiteSpace(cmd.GroupName))
             throw new AppException(ErrorKind.BadRequest, "invalid_target", "Provide exactly one of phone or groupName.");
+        if (cmd.GroupName is { Length: > MaxGroupNameLength })
+            throw new AppException(ErrorKind.BadRequest, "invalid_target", $"groupName is too long (max {MaxGroupNameLength} characters).");
         var key = NormalizeKey(cmd.IdempotencyKey);
 
         // A replay must be answered from the stored record, before anything else can fail (session stopped, limit hit...).
