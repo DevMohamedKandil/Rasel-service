@@ -39,11 +39,6 @@ public interface ISmsProvider
     Task SendAsync(string phoneE164, string text, CancellationToken ct);
 }
 
-/// <summary>Transactional email transport. The application layer owns templates and business decisions.</summary>
-public interface IEmailProvider
-{
-    Task SendAsync(string to, string subject, string body, bool isHtml, CancellationToken ct);
-}
 
 public interface IApiClientRepository
 {
