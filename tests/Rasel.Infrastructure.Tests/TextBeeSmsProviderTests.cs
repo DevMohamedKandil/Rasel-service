@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using Microsoft.Extensions.Options;
 using Rasel.Application.Ports;
 using Rasel.Infrastructure.Configuration;
@@ -22,8 +23,9 @@ public sealed class TextBeeSmsProviderTests
 
         await provider.SendAsync("+201001234567", "test message", CancellationToken.None);
 
-        Assert.Contains("\"recipients\":[\"+201001234567\"]", handler.Body);
-        Assert.Contains("\"message\":\"test message\"", handler.Body);
+        using var json = JsonDocument.Parse(handler.Body);
+        Assert.Equal("+201001234567", json.RootElement.GetProperty("recipients")[0].GetString());
+        Assert.Equal("test message", json.RootElement.GetProperty("message").GetString());
     }
 
     [Fact]
@@ -39,7 +41,8 @@ public sealed class TextBeeSmsProviderTests
 
         await provider.SendAsync("+201001234567", "test", CancellationToken.None);
 
-        Assert.Contains("\"deviceId\":\"device-123\"", handler.Body);
+        using var json = JsonDocument.Parse(handler.Body);
+        Assert.Equal("device-123", json.RootElement.GetProperty("deviceId").GetString());
     }
 
     [Fact]
