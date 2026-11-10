@@ -27,6 +27,46 @@ public sealed class TextBeeSmsProviderTests
     }
 
     [Fact]
+    public async Task SendAsync_IncludesConfiguredDeviceId()
+    {
+        var handler = new StubHandler((_, _) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var provider = CreateProvider(handler, new TextBeeOptions
+        {
+            ApiKey = "test-key",
+            DeviceId = "device-123"
+        });
+
+        await provider.SendAsync("+201001234567", "test", CancellationToken.None);
+
+        Assert.Contains("\"deviceId\":\"device-123\"", handler.Body);
+    }
+
+    [Fact]
+    public async Task SendAsync_TreatsRequestTimeoutAsTransient()
+    {
+        var provider = CreateProvider(new StubHandler((_, _) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.RequestTimeout))));
+
+        var error = await Assert.ThrowsAsync<ProviderException>(
+            () => provider.SendAsync("+201001234567", "test", CancellationToken.None));
+
+        Assert.True(error.IsTransient);
+    }
+
+    [Fact]
+    public async Task SendAsync_TreatsQuotaLimitAsPermanent()
+    {
+        var provider = CreateProvider(new StubHandler((_, _) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.TooManyRequests))));
+
+        var error = await Assert.ThrowsAsync<ProviderException>(
+            () => provider.SendAsync("+201001234567", "test", CancellationToken.None));
+
+        Assert.False(error.IsTransient);
+    }
+
+    [Fact]
     public async Task SendAsync_TreatsServerErrorsAsTransient()
     {
         var provider = CreateProvider(new StubHandler((_, _) =>
@@ -50,9 +90,9 @@ public sealed class TextBeeSmsProviderTests
         Assert.False(error.IsTransient);
     }
 
-    private static TextBeeSmsProvider CreateProvider(StubHandler handler) =>
+    private static TextBeeSmsProvider CreateProvider(StubHandler handler, TextBeeOptions? options = null) =>
         new(new HttpClient(handler) { BaseAddress = new Uri(TextBeeOptions.DefaultBaseUrl) },
-            Options.Create(new TextBeeOptions { ApiKey = "test-key" }));
+            Options.Create(options ?? new TextBeeOptions { ApiKey = "test-key" }));
 
     private sealed class StubHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send)
         : HttpMessageHandler
