@@ -94,6 +94,29 @@ public static class DependencyInjection
             throw new InvalidOperationException($"Unsupported SMS provider '{smsProvider}'. Supported values: Fake, TextBee.");
         }
 
+        var emailProvider = config["Email:Provider"] ?? "Fake";
+        if (emailProvider.Equals("Smtp", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddOptions<SmtpEmailOptions>()
+                .Bind(config.GetSection(SmtpEmailOptions.SectionName))
+                .Validate(o => !string.IsNullOrWhiteSpace(o.Host), "Email:Smtp:Host is required when Email:Provider is Smtp.")
+                .Validate(o => o.Port is >= 1 and <= 65535, "Email:Smtp:Port must be between 1 and 65535.")
+                .Validate(o => !string.IsNullOrWhiteSpace(o.FromEmail) && System.Net.Mail.MailAddress.TryCreate(o.FromEmail, out _),
+                    "Email:Smtp:FromEmail must be a valid email address.")
+                .Validate(o => o.TimeoutSeconds is >= 1 and <= 120, "Email:Smtp:TimeoutSeconds must be between 1 and 120.")
+                .ValidateOnStart();
+            services.AddTransient<IEmailProvider, SmtpEmailProvider>();
+        }
+        else if (emailProvider.Equals("Fake", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<FakeEmailProvider>();
+            services.AddSingleton<IEmailProvider>(sp => sp.GetRequiredService<FakeEmailProvider>());
+        }
+        else
+        {
+            throw new InvalidOperationException($"Unsupported email provider '{emailProvider}'. Supported values: Fake, Smtp.");
+        }
+
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<ICodeGenerator, CsprngCodeGenerator>();
         services.AddSingleton<IOtpHasher>(sp => new HmacOtpHasher(sp.GetRequiredService<IOptions<SecurityOptions>>().Value.OtpPepper));
