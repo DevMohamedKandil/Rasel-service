@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using Microsoft.Extensions.Options;
 using Rasel.Application.Ports;
 using Rasel.Infrastructure.Configuration;
@@ -22,8 +23,50 @@ public sealed class TextBeeSmsProviderTests
 
         await provider.SendAsync("+201001234567", "test message", CancellationToken.None);
 
-        Assert.Contains("\"recipients\":[\"+201001234567\"]", handler.Body);
-        Assert.Contains("\"message\":\"test message\"", handler.Body);
+        using var json = JsonDocument.Parse(handler.Body);
+        Assert.Equal("+201001234567", json.RootElement.GetProperty("recipients")[0].GetString());
+        Assert.Equal("test message", json.RootElement.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task SendAsync_IncludesConfiguredDeviceId()
+    {
+        var handler = new StubHandler((_, _) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var provider = CreateProvider(handler, new TextBeeOptions
+        {
+            ApiKey = "test-key",
+            DeviceId = "device-123"
+        });
+
+        await provider.SendAsync("+201001234567", "test", CancellationToken.None);
+
+        using var json = JsonDocument.Parse(handler.Body);
+        Assert.Equal("device-123", json.RootElement.GetProperty("deviceId").GetString());
+    }
+
+    [Fact]
+    public async Task SendAsync_TreatsRequestTimeoutAsTransient()
+    {
+        var provider = CreateProvider(new StubHandler((_, _) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.RequestTimeout))));
+
+        var error = await Assert.ThrowsAsync<ProviderException>(
+            () => provider.SendAsync("+201001234567", "test", CancellationToken.None));
+
+        Assert.True(error.IsTransient);
+    }
+
+    [Fact]
+    public async Task SendAsync_TreatsQuotaLimitAsPermanent()
+    {
+        var provider = CreateProvider(new StubHandler((_, _) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.TooManyRequests))));
+
+        var error = await Assert.ThrowsAsync<ProviderException>(
+            () => provider.SendAsync("+201001234567", "test", CancellationToken.None));
+
+        Assert.False(error.IsTransient);
     }
 
     [Fact]
@@ -50,9 +93,9 @@ public sealed class TextBeeSmsProviderTests
         Assert.False(error.IsTransient);
     }
 
-    private static TextBeeSmsProvider CreateProvider(StubHandler handler) =>
+    private static TextBeeSmsProvider CreateProvider(StubHandler handler, TextBeeOptions? options = null) =>
         new(new HttpClient(handler) { BaseAddress = new Uri(TextBeeOptions.DefaultBaseUrl) },
-            Options.Create(new TextBeeOptions { ApiKey = "test-key" }));
+            Options.Create(options ?? new TextBeeOptions { ApiKey = "test-key" }));
 
     private sealed class StubHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send)
         : HttpMessageHandler
