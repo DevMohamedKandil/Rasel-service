@@ -35,11 +35,11 @@ public sealed class TextBeeSmsProvider(HttpClient http, IOptions<TextBeeOptions>
         }
         catch (HttpRequestException)
         {
-            throw new ProviderException("TextBee API request failed.", transient: true);
+            throw new ProviderException("TextBee API request failed.", isTransient: true);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            throw new ProviderException("TextBee API request timed out.", transient: true);
+            throw new ProviderException("TextBee API request timed out.", isTransient: true);
         }
 
         using (response)
@@ -51,7 +51,7 @@ public sealed class TextBeeSmsProvider(HttpClient http, IOptions<TextBeeOptions>
             var transient = response.StatusCode == HttpStatusCode.RequestTimeout || status >= 500;
             throw new ProviderException(
                 $"TextBee rejected the SMS request (HTTP {status}).",
-                transient: transient);
+                isTransient: transient);
         }
     }
 
