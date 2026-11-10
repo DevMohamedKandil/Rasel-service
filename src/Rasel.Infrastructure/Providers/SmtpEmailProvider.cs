@@ -29,9 +29,11 @@ public sealed class SmtpEmailProvider(IOptions<SmtpEmailOptions> options) : IEma
             Credentials = new NetworkCredential(_options.Username, _options.Password),
             Timeout = checked(_options.TimeoutSeconds * 1000)
         };
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(_options.TimeoutSeconds));
         try
         {
-            await client.SendMailAsync(message, ct);
+            await client.SendMailAsync(message, timeout.Token);
         }
         catch (SmtpException ex)
         {
