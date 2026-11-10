@@ -103,6 +103,8 @@ public static class DependencyInjection
                 .Validate(o => o.Port is >= 1 and <= 65535, "Email:Smtp:Port must be between 1 and 65535.")
                 .Validate(o => !string.IsNullOrWhiteSpace(o.FromEmail) && System.Net.Mail.MailAddress.TryCreate(o.FromEmail, out _),
                     "Email:Smtp:FromEmail must be a valid email address.")
+                .Validate(o => string.IsNullOrWhiteSpace(o.Username) == string.IsNullOrWhiteSpace(o.Password),
+                    "Email:Smtp:Username and Password must either both be set or both be empty.")
                 .Validate(o => o.TimeoutSeconds is >= 1 and <= 120, "Email:Smtp:TimeoutSeconds must be between 1 and 120.")
                 .ValidateOnStart();
             services.AddTransient<IEmailProvider, SmtpEmailProvider>();
