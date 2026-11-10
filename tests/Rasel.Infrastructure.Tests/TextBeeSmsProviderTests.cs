@@ -14,7 +14,7 @@ public sealed class TextBeeSmsProviderTests
         var handler = new StubHandler((request, _) =>
         {
             Assert.Equal(HttpMethod.Post, request.Method);
-            Assert.Equal("gateway/send-sms", request.RequestUri!.ToString());
+            Assert.Equal("https://api.textbee.dev/api/v1/gateway/send-sms", request.RequestUri!.ToString());
             Assert.Equal("test-key", request.Headers.GetValues("x-api-key").Single());
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
         });
