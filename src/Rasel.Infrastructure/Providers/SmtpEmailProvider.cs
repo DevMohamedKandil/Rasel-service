@@ -13,6 +13,9 @@ public sealed class SmtpEmailProvider(IOptions<SmtpEmailOptions> options) : IEma
 
     public async Task SendAsync(string to, string subject, string body, bool isHtml, CancellationToken ct)
     {
+        if (!MailAddress.TryCreate(to, out var recipient))
+            throw new ProviderException("Email recipient address is invalid.");
+
         using var message = new MailMessage
         {
             From = new MailAddress(_options.FromEmail, _options.FromName),
@@ -20,13 +23,16 @@ public sealed class SmtpEmailProvider(IOptions<SmtpEmailOptions> options) : IEma
             Body = body,
             IsBodyHtml = isHtml
         };
-        message.To.Add(new MailAddress(to));
+        message.To.Add(recipient);
 
 #pragma warning disable SYSLIB0014 // Isolated behind IEmailProvider to avoid coupling application logic to SMTP transport details.
         using var client = new SmtpClient(_options.Host, _options.Port)
         {
             EnableSsl = _options.EnableSsl,
-            Credentials = new NetworkCredential(_options.Username, _options.Password),
+            UseDefaultCredentials = false,
+            Credentials = string.IsNullOrWhiteSpace(_options.Username)
+                ? null
+                : new NetworkCredential(_options.Username, _options.Password),
             Timeout = checked(_options.TimeoutSeconds * 1000)
         };
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -40,7 +46,8 @@ public sealed class SmtpEmailProvider(IOptions<SmtpEmailOptions> options) : IEma
             var transient = ex.StatusCode is SmtpStatusCode.GeneralFailure
                 or SmtpStatusCode.MailboxBusy
                 or SmtpStatusCode.LocalErrorInProcessing
-                or SmtpStatusCode.InsufficientStorage;
+                or SmtpStatusCode.InsufficientStorage
+                or SmtpStatusCode.ServiceNotAvailable;
             throw new ProviderException("SMTP server failed to accept the email.", isTransient: transient);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
