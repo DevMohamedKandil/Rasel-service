@@ -66,8 +66,34 @@ public static class DependencyInjection
         }
 
         services.TryAddSingleton<ISidecarControl, NullSidecarControl>();
-        services.AddSingleton<FakeSmsProvider>();
-        services.AddSingleton<ISmsProvider>(sp => sp.GetRequiredService<FakeSmsProvider>());
+        var smsProvider = config["Sms:Provider"] ?? "Fake";
+        if (smsProvider.Equals("TextBee", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddOptions<TextBeeOptions>()
+                .Bind(config.GetSection(TextBeeOptions.SectionName))
+                .Validate(o => !string.IsNullOrWhiteSpace(o.ApiKey), "Sms:TextBee:ApiKey is required when Sms:Provider is TextBee.")
+                .Validate(o => Uri.TryCreate(o.BaseUrl, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps,
+                    "Sms:TextBee:BaseUrl must be an absolute HTTPS URL.")
+                .Validate(o => o.TimeoutSeconds is >= 1 and <= 120, "Sms:TextBee:TimeoutSeconds must be between 1 and 120.")
+                .ValidateOnStart();
+            services.AddHttpClient<TextBeeSmsProvider>((sp, client) =>
+            {
+                var options = sp.GetRequiredService<IOptions<TextBeeOptions>>().Value;
+                client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/");
+                client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+            });
+            services.AddTransient<ISmsProvider>(sp => sp.GetRequiredService<TextBeeSmsProvider>());
+        }
+        else if (smsProvider.Equals("Fake", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<FakeSmsProvider>();
+            services.AddSingleton<ISmsProvider>(sp => sp.GetRequiredService<FakeSmsProvider>());
+        }
+        else
+        {
+            throw new InvalidOperationException($"Unsupported SMS provider '{smsProvider}'. Supported values: Fake, TextBee.");
+        }
+
 
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<ICodeGenerator, CsprngCodeGenerator>();
